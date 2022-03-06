@@ -18,6 +18,7 @@
 #include <move_control/Serial.h>
 
 #define WATCH_ROAD_PLAN 0
+#define USE_PID_MOVE_CONTROL 1
 
 using namespace std;
 using namespace cv;
@@ -1126,6 +1127,53 @@ void update_velocity_callback(const move_control:: velocity :: ConstPtr& msg_rec
         //ROS_INFO("vx = %lf vy = %lf angle:%lf", msg_receive->vx, msg_receive->vy,msg_receive->omiga);
 }
 
+#if USE_PID_MOVE_CONTROL
+double last_errorx, last_errory, errorx, errory, PID_dt;
+auto lasttime = std::chrono::high_resolution_clock::now();
+double kd, kp; bool first_flag = 0;
+
+//第一个参数是用来发布的ROS通信句柄
+//第二个参数是当前控制的目标点
+void PID_move_control(const auto& move_control_publisher, cv::Point goalpoint)
+{
+	//计算当前位置误差
+	errorx = goalx - robot1.x;
+	errory = goaly - robot1.y;
+
+	if (first_flag == 0){
+		first_flag = 1;
+		last_errorx = errorx;
+		last_errory = errory;
+		lasttime = std::chrono::high_resolution_clock::now();
+	}
+	
+	if (first_flag == 1) PID_dt = ((static_cast<std::chrono::duration<double, std::milli>>(t2 - lasttime)).count())/1000;
+		else PID_dt = 10000000; //防止被0除，不过其实上面已经把error差置零了，被0除也没有关系
+
+	//计算vx, vy
+	double control_vx, control_vy;
+	control_vx = kp * (errorx  + kd * abs(last_errorx - errorx) / PID_dt);
+	control_vy = kp * (errory  + kd * abs(last_errory - errory) / PID_dt);
+
+	//限幅
+	if (control_vx >= 0.8) control_vx = 0.8;
+	if (control_vy >= 0.8) control_vy = 0.8;
+
+	//准备发送控制帧
+	move_control :: my_control_frame _Contraldata;
+	_Contraldata.vx = control_vx;
+	_Contraldata.vy = control_vy;
+	_Contraldata.angle = 0;
+	move_control_publisher.publish(_Contraldata);
+	ROS_INFO("c_vx= %lf; goal=(%d,%d) next_c: %d;  now:%d; total:%d\n",robot1.x, robot1.y, final_path[now].next_corner_dis, now, robot1.angle, controlframe.angle,controlframe.vx,  goalx, goaly,final_path[now].nextcorner, now,final_path_i);
+
+	ros::spinOnce();
+
+	//更新last_error
+	last_errorx = errorx;
+    last_errory = errory;
+}
+#endif
 
 void Navigation_base_on_odom(const auto& move_control_publisher)
 {
@@ -1179,14 +1227,14 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 		else
 		{
 
-                        controlframe.vx = 0.8;
+            controlframe.vx = 0.8;
 			controlframe.vy = 0;
 		}
 
-                if (my_dist(goalx,goaly, robot1.x, robot1.y) <= 2){//误差＜10cm认为抵达了终点
+        if (my_dist(goalx,goaly, robot1.x, robot1.y) <= 2){//误差＜10cm认为抵达了终点
 			stop_navigation_flag = 1;
-                        need_replan_path = 0;
-                }
+            need_replan_path = 0;
+        }
 		
 		move_control :: my_control_frame _Contraldata;
 		_Contraldata.vx = controlframe.vx;
@@ -1212,10 +1260,10 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 		//std::cout << "next corner x:  " << corner_vector[final_path[now].nextcorner].y << "  y: "<< corner_vector[final_path[now].nextcorner].x<<"   cos(angle) is:  " << std::cos(robot1.angle / 180.0 * 3.1415926)<<std::endl;
 		//发布速度控制信息
 		//ros::
-                rate.sleep();
+        rate.sleep();
 	}
 	stop_navigation_flag = 0;
-        need_replan_path = 0;
+    need_replan_path = 0;
 }
 
 void Navigation()
@@ -1287,7 +1335,7 @@ int main(int argc, char **argv)
 	namedWindow("Simulation_Environment@HEUsjh");//创建仿真环境窗口
 	setMouseCallback("Simulation_Environment@HEUsjh", mouse_handle);//挂载鼠标事件回调函数
 
-        init_robot_position(1);
+    init_robot_position(1);
 
 	need_replan_path = 0;
 	img = img_plain_save.clone(); 
@@ -1307,7 +1355,10 @@ int main(int argc, char **argv)
 		if (need_replan_path == 1) { 
 			auto t1 = std::chrono::high_resolution_clock::now();
 			path_planner(); 
-                        path_optimizer();
+            path_optimizer();
+#if USE_PID_MOVE_CONTROL
+			PID_move_control(move_control_publisher, );
+#endif
 			Navigation_base_on_odom(move_control_publisher);
 			delete_now_path(); //需要注意的是final_path的删除时机
 			auto t2 = std::chrono::high_resolution_clock::now();
@@ -1317,10 +1368,10 @@ int main(int argc, char **argv)
 		}
 		//Navigation();
 		//draw_path();
-                imshow("Simulation_Environment@HEUsjh", img_erode_save);
-                imshow("Simulation_Environment3@HEUsjh", img);
+        imshow("Simulation_Environment@HEUsjh", img_erode_save);
+        imshow("Simulation_Environment3@HEUsjh", img);
 		imshow("Simulation_Environment2@HEUsjh", img_final_path);
-                ROS_INFO("Searching hit goal!!!\n");
+        ROS_INFO("Waitting command!!!\n");
 		waitKey(1);
 		
 	}
