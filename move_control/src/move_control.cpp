@@ -4,6 +4,7 @@
 #include <math.h>
 #include <algorithm>
 #include <chrono>
+#include <string>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
@@ -452,7 +453,7 @@ void find_corner()
                         {
 				if (my_dist(final_path[i].x, final_path[i].y, (*it).y, (*it).x) <= 2)
 				{
-                                        corner_vector.push_back(*it);
+                    corner_vector.push_back(*it);
 					//妈的，就是这个鸟蛋地方卡了我半天，重修STL了属于是。想当年恩师必然是和我说了的，可惜我忘了来着
 					it = corner_vector_temp.erase(it);
 					if (corner_vector_temp.size() == 0)
@@ -1311,18 +1312,26 @@ void init_robot_position(int num)
     robot1.angle = nowangle;
 }
 
+void update_goalpoint_callback(const move_control:: TCPmessage_receive :: ConstPtr& msg_receive)
+{
+	goalx = msg_receive.goalx;
+	goaly = msg_receive.goaly;
+	return;
+}
+
 int main(int argc, char **argv)
 {	
 	//初始化里程计节点
-        ros::init(argc, argv, "move_control");
+    ros::init(argc, argv, "move_control");
 	//创建通信句柄
 	ros::NodeHandle communication_handle_obj;
 	ros::Publisher move_control_publisher = 
 				communication_handle_obj.advertise <move_control :: my_control_frame> ("/robot_control",10);
 
-        //订阅消息
-        ros::Subscriber move_control_subscriber = communication_handle_obj.subscribe("/velocity", 10, update_velocity_callback);
-    
+    //订阅消息
+    ros::Subscriber move_control_subscriber = communication_handle_obj.subscribe("/velocity", 10, update_velocity_callback);
+    ros::Subscriber goalpoint_subscriber = communication_handle_obj.subscribe("/goalpoint", 10, update_goalpoint_callback);
+
 	//program_start_time = std::chrono::high_resolution_clock::now();//时，万物之始也
 
 	// while (_Serial.openPort() != rm::Serial::SUCCESS);
@@ -1371,9 +1380,9 @@ int main(int argc, char **argv)
         imshow("Simulation_Environment@HEUsjh", img_erode_save);
         imshow("Simulation_Environment3@HEUsjh", img);
 		imshow("Simulation_Environment2@HEUsjh", img_final_path);
-        ROS_INFO("Waitting command!!!\n");
+        //ROS_INFO("Waitting command!!!\n");
 		waitKey(1);
-		
+		ros::spinOnce();
 	}
 }
 
