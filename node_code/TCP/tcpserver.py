@@ -8,7 +8,7 @@ class Server(object):
         self.online_pool = {}
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-        self.server.bind(config.settings['addr_port'])
+        self.server.bind(("127.0.0.1", 8010))
  
     # 消息广播方法
     def broadcast(self, msg):
@@ -79,6 +79,6 @@ class Server(object):
  
  
 if __name__ == '__main__':
-    print('服务器{}已启动!'.format(config.settings['addr_port']))
+    print('服务器{}已启动!'.format(("127.0.0.1", 8010)))
     server = Server()
     server.start()
