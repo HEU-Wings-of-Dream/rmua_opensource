@@ -12,12 +12,12 @@ class Server(object):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         self.server.bind((goal_ip, port))
- 
+
     # 消息广播方法
     def broadcast(self, msg):
         for i in self.online_pool:
             self.online_pool[i].send(msg.encode('gbk'))
- 
+
     # 客户端登录方法
     def login(self, client_socket, info):
         print('{} Login'.format(info))
@@ -31,19 +31,19 @@ class Server(object):
         print(msg)
         msg = msg.encode('gbk')
         client_socket.send(msg)
- 
+
     # 客户端登出方法
     def logout(self, info):
         del self.online_pool[info]
         msg = '{} 下线了'.format(info)
         self.broadcast(msg)
- 
+
     # 发送消息方法
     def send_msg(self, info, msg):
         msg = msg.encode('gbk')
         if info in self.online_pool:
             self.online_pool[info].send(msg)
- 
+
     # 会话管理方法
     def session(self, client_socket, info):
         # 新用户登录,执行login()
