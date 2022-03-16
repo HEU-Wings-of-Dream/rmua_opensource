@@ -61,7 +61,7 @@ namespace rm {
 
         uint8_t* my_buffer = new uint8_t[sizeof(ReceivedData)];
         memset(my_buffer, 0, sizeof(ReceivedData));
-        serial::Serial::ScopedReadLock aa(sp);
+        //serial::Serial::ScopedReadLock aa(sp);
         my_serial.flush();
         my_serial.read(my_buffer, buffer_size);//????
         memcpy(receiveddata, my_buffer, buffer_size);//??????
@@ -88,3 +88,4 @@ namespace rm {
         return;
     }
 }
+//今后改成多线程，一个线程专门监听串口，一个线程专门在ROS话题上发布信息
