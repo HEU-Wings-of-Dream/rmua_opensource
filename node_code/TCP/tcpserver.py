@@ -1,14 +1,17 @@
 import socket
 import threading
 import inputimeout
- 
+
+goal_ip = "127.0.0.1"
+port = 1953
+
 class Server(object):
     def __init__(self):
         # 在线客户端
         self.online_pool = {}
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-        self.server.bind(("127.0.0.1", 8010))
+        self.server.bind((goal_ip, port))
  
     # 消息广播方法
     def broadcast(self, msg):
@@ -70,22 +73,22 @@ class Server(object):
                 break
  
     #广播方法
-    def wait_to_publish(self, info):
+    def wait_to_publish(self, ttt, info):
         while True:
-            try:
-                # 10秒内未完成输入，则超时
-                c = inputimeout(prompt='You have 10 seconds to input\n', timeout=10)
-            except TimeoutOccurred:
-                c = 'timeout'
-                print(c)
-            else:
-                for i in self.online_pool:
-                    if i != info:
-                        self.send_msg(i,s)
+            # 10秒内未完成输入，则超时
+            c = ''
+            # try:
+            #     c = inputimeout.inputimeout(prompt='You have 10 seconds to input\n', timeout=10)
+            # except inputimeout.TimeoutOccurred:
+            #     c = 'timeout'
+            #     print(c)
+            c = input()
+            self.broadcast(c)
+            print("send to {} success".format(info))
 
 
     def start(self):
-        print("准备监听端口8010")
+        print("准备监听端口{}".format((goal_ip, port)))
         self.server.listen(128)
         while True:
             client_socket, info = self.server.accept()
@@ -93,12 +96,12 @@ class Server(object):
             thread.setDaemon(True)
             thread.start()
 
-            #thread2 = threading.Thread(target = self.wait_to_publish, args = (info))
-            #thread2.setDaemon(True)
-            #thread2.start()
+            thread2 = threading.Thread(target = self.wait_to_publish, args = (1, info))
+            thread2.setDaemon(True)
+            thread2.start()
  
  
 if __name__ == '__main__':
-    print('服务器{}已启动!'.format(("127.0.0.1", 8011)))
+    print('服务器{}已启动!'.format((goal_ip, port)))
     server = Server()
     server.start()

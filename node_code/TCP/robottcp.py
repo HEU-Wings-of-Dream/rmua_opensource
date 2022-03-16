@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # 创建客户端socket
     tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # 客户端socket连接到 服务端
-    tcp_client.connect(('127.0.0.1', 8011))
+    tcp_client.connect(('127.0.0.1', 1953))
  
     recv_theard = threading.Thread(target=receive_msg, args=(tcp_client,))
  
