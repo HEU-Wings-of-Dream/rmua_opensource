@@ -1,6 +1,6 @@
 import socket
 import threading
- 
+import inputimeout
  
 class Server(object):
     def __init__(self):
@@ -69,16 +69,36 @@ class Server(object):
                 self.logout(info)
                 break
  
+    #广播方法
+    def wait_to_publish(self, info):
+        while True:
+            try:
+                # 10秒内未完成输入，则超时
+                c = inputimeout(prompt='You have 10 seconds to input\n', timeout=10)
+            except TimeoutOccurred:
+                c = 'timeout'
+                print(c)
+            else:
+                for i in self.online_pool:
+                    if i != info:
+                        self.send_msg(i,s)
+
+
     def start(self):
+        print("准备监听端口8010")
         self.server.listen(128)
         while True:
             client_socket, info = self.server.accept()
             thread = threading.Thread(target=self.session, args=(client_socket, info))
             thread.setDaemon(True)
             thread.start()
+
+            #thread2 = threading.Thread(target = self.wait_to_publish, args = (info))
+            #thread2.setDaemon(True)
+            #thread2.start()
  
  
 if __name__ == '__main__':
-    print('服务器{}已启动!'.format(("127.0.0.1", 8010)))
+    print('服务器{}已启动!'.format(("127.0.0.1", 8011)))
     server = Server()
     server.start()
