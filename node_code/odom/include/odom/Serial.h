@@ -47,13 +47,9 @@ namespace rm
         struct ControlFrame
         {
             uint8_t SOF;
-            uint8_t flg;
-            short x; //mm
-            short y;
-            short z;
-            uint32_t time_stamp;
-            short reserve1;     // LightBar len ratio
-            uint8_t reserve2;   // Target type
+            int16_t vx;
+	    int16_t vy;
+            int16_t angle;
             uint8_t EOF;
         };
 
@@ -66,7 +62,7 @@ namespace rm
             uint8_t myteam; //  EE DD
             int16_t vx;
             int16_t vy;
-            int16_t omiga;
+            float omiga;
             uint8_t EOF;
         };//__attribute__((_packed));
 

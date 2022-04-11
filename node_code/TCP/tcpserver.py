@@ -1,9 +1,9 @@
 import socket
 import threading
-import inputimeout
+#import inputimeout
 
-goal_ip = "127.0.0.1"
-port = 1953
+goal_ip = "192.168.43.213"  
+port = 2022
 
 class Server(object):
     def __init__(self):
@@ -16,31 +16,32 @@ class Server(object):
     # 消息广播方法
     def broadcast(self, msg):
         for i in self.online_pool:
-            self.online_pool[i].send(msg.encode('gbk'))
+            self.online_pool[i].send(msg.encode('utf-8'))
 
     # 客户端登录方法
     def login(self, client_socket, info):
         print('{} Login'.format(info))
-        if len(self.online_pool) >= 1:
-            self.broadcast('{} 上线了...'.format(info))
+        # if len(self.online_pool) >= 1:
+        #     self.broadcast('{} 上线了...'.format(info))
         self.online_pool[info] = client_socket
         # 通知新用户当前在线列表
         msg = '当前在线用户:\n'
         for i in self.online_pool:
             msg += (str(i) + '\n')
         print(msg)
-        msg = msg.encode('gbk')
-        client_socket.send(msg)
+        # msg = msg.encode('utf-8')
+        # client_socket.send(msg)
 
     # 客户端登出方法
     def logout(self, info):
         del self.online_pool[info]
         msg = '{} 下线了'.format(info)
-        self.broadcast(msg)
+        print(msg)
+        # self.broadcast(msg)
 
     # 发送消息方法
     def send_msg(self, info, msg):
-        msg = msg.encode('gbk')
+        msg = msg.encode('utf-8')
         if info in self.online_pool:
             self.online_pool[info].send(msg)
 
@@ -50,8 +51,8 @@ class Server(object):
         self.login(client_socket, info)
         while True:
             try:
-                data = client_socket.recv(1024).decode('gbk')
-                # 如果收到长度为0的数据包,说明客户端 调用了secket.close()
+                data = client_socket.recv(1024).decode('utf-8')
+                #如果收到长度为0的数据包,说明客户端 调用了secket.close()
                 if len(data) == 0:
                     print('{}客户端断开...'.format(info))
                     # 此时需要调通客户端 登出 方法
@@ -62,16 +63,16 @@ class Server(object):
                     # 此时服务端接收到正常的消息,广播给其他所有客户端
                     content = str(info) + ': '
                     data = content + data
-                    for i in self.online_pool:
-                        if i != info:
-                            self.send_msg(i, data)
+                    # for i in self.online_pool:
+                    #     if i != info:
+                    #         self.send_msg(i, data)
             except Exception as err:
                 print(err)
                 # 如果抛出异常,说明客户端强制退出,并没有调用socket.close()
                 # 此时需要调通客户端 登出 方法
                 self.logout(info)
                 break
- 
+
     #广播方法
     def wait_to_publish(self, ttt, info):
         while True:
@@ -83,13 +84,14 @@ class Server(object):
             #     c = 'timeout'
             #     print(c)
             c = input()
+            c = c + 'e'
             self.broadcast(c)
             print("send to {} success".format(info))
 
 
     def start(self):
         print("准备监听端口{}".format((goal_ip, port)))
-        self.server.listen(128)
+        self.server.listen(port)
         while True:
             client_socket, info = self.server.accept()
             thread = threading.Thread(target=self.session, args=(client_socket, info))
@@ -99,9 +101,9 @@ class Server(object):
             thread2 = threading.Thread(target = self.wait_to_publish, args = (1, info))
             thread2.setDaemon(True)
             thread2.start()
- 
- 
+
+
 if __name__ == '__main__':
     print('服务器{}已启动!'.format((goal_ip, port)))
     server = Server()
-    server.start()
+    server.start()  

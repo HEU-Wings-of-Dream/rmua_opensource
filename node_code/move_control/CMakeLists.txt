@@ -26,6 +26,7 @@ add_message_files(
 	FILES
 	velocity.msg
   my_control_frame.msg
+  race_state.msg
 )
 
 generate_messages(

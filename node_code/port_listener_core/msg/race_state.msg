@@ -1,0 +1,15 @@
+int32 my_SOF  
+int32 myteam 
+int32 robot_id
+int32[6] zone
+int32[6] zone_status
+int32 self_1_bullet_left
+int32 self_1_HP_left
+int32 self_2_bullet_left
+int32 self_2_HP_left
+int32 enemy_1_bullet_left
+int32 enemy_1_HP_left
+int32 enemy_2_bullet_left
+int32 enemy_2_HP_left
+int32 lurk_mode
+int32 my_EOF  

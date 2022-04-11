@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "cmath": "cpp",
+        "vector": "cpp",
+        "xstring": "cpp",
+        "mutex": "cpp"
+    }
+}

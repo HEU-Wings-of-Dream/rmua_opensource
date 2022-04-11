@@ -1,0 +1,28 @@
+Log file created at: 2021/11/13 16:15:31
+Running on machine: star-virtual-machine
+Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg
+I1113 16:15:31.889233  5572 run.cpp:102] run init success
+I1113 16:15:31.890297  5582 run.cpp:447] receive failed1times
+I1113 16:15:33.873819  5582 run.cpp:447] receive failed1001times
+I1113 16:15:36.127383  5582 run.cpp:447] receive failed2001times
+I1113 16:15:38.102808  5582 run.cpp:447] receive failed3001times
+I1113 16:15:40.146996  5582 run.cpp:447] receive failed4001times
+I1113 16:15:42.357115  5582 run.cpp:447] receive failed5001times
+I1113 16:15:44.189060  5582 run.cpp:447] receive failed6001times
+I1113 16:15:46.138455  5582 run.cpp:447] receive failed7001times
+I1113 16:15:48.102069  5582 run.cpp:447] receive failed8001times
+I1113 16:15:50.008034  5582 run.cpp:447] receive failed9001times
+I1113 16:15:51.863209  5582 run.cpp:447] receive failed10001times
+I1113 16:15:54.074159  5582 run.cpp:447] receive failed11001times
+I1113 16:15:55.879518  5582 run.cpp:447] receive failed12001times
+I1113 16:15:57.876080  5582 run.cpp:447] receive failed13001times
+I1113 16:16:00.028736  5582 run.cpp:447] receive failed14001times
+I1113 16:16:01.950117  5582 run.cpp:447] receive failed15001times
+I1113 16:16:03.895448  5582 run.cpp:447] receive failed16001times
+I1113 16:16:05.889075  5582 run.cpp:447] receive failed17001times
+I1113 16:16:07.883775  5582 run.cpp:447] receive failed18001times
+I1113 16:16:09.672214  5582 run.cpp:447] receive failed19001times
+I1113 16:16:11.671555  5582 run.cpp:447] receive failed20001times
+I1113 16:16:13.454198  5582 run.cpp:447] receive failed21001times
+I1113 16:16:15.142071  5582 run.cpp:447] receive failed22001times
+I1113 16:16:17.044827  5582 run.cpp:447] receive failed23001times

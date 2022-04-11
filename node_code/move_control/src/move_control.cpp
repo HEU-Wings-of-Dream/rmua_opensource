@@ -4,7 +4,6 @@
 #include <math.h>
 #include <algorithm>
 #include <chrono>
-#include <string>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
@@ -12,14 +11,16 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <ros/ros.h>
+#include <geometry_msgs/Point32.h>
+#include <geometry_msgs/Point.h>
 #include <move_control/velocity.h>
 #include <move_control/my_control_frame.h>
+#include <move_control/race_state.h>
 
 #include <move_control/data_frame.h>
 #include <move_control/Serial.h>
 
 #define WATCH_ROAD_PLAN 0
-#define USE_PID_MOVE_CONTROL 1
 
 using namespace std;
 using namespace cv;
@@ -44,11 +45,13 @@ bool flag[228][408], flag_optimizer[228][408];//A*标记数组
 int corner_array[93024]; int number_of_corner = 0;//这里面放的是拐点在path_array里面的下标，方便同时调用，两个都是从1开始存的
 cv::Mat img, img_plain_save, img_erode_save, simulation_map, path_map(226,406,CV_8UC1,Scalar(255)), mask, img_final_path;//定义地图啥的
 
+int zone[6]{}, zone_status[6]{};
+
 //全局通信标记定义
 bool need_replan_path = 1, first_in_simulation_function = 0, stop_navigation_flag = 0;
 
 //导航所需全局vector定义
-std::vector<cv::Point>corner_vector;
+std::vector<cv::Point2f>corner_vector;
 std::vector<int>angle_vector;
 
 //时间参数变量
@@ -110,8 +113,8 @@ class self_robot
 //官车的性能非常好，不妨认为速度都是恒定的，没有加速时间、减速时间，以此简化计算
 //这样，90度的转弯半径也只有0.18m，而且我觉得行进速度挺合适
 public:
-	double x;
-	double y;
+	int x;
+	int y;
 	double angle;//说明：当前位姿是底盘正方向射线与水平线夹角
 	int HP;
 	int MP;    
@@ -188,6 +191,7 @@ void init_load_wall_line();
 void init_load_erode_wall_line();
 //仿真环境鼠标时间回调函数
 void mouse_handle(int event, int x, int y, int flags, void* param);
+void keep_xy_safe(int& x, int& y);
 
 //算距离，这你要是看不出来那你是有点憨
 double my_dist(int x1, int y1, int x2, int y2)
@@ -232,15 +236,15 @@ double can_pass(int x1, int y1, int x2, int y2)
 
 void init_load_map()
 {
-        img_plain_save = cv::imread("/home/ubuntu/catkin_ws/src/move_control/src/map2.png", -1);
+    img_plain_save = cv::imread("/home/ubuntu/catkin/src/move_control/src/map2.png", -1);
 	if (img_plain_save.empty() == 1)cout<<"MAP EMPTY!!"<<std::endl;
 	//腐蚀操作取结构元所指定的领域内值的最小值作为该位置的输出灰度值
-        cv::Mat structureElement = getStructuringElement(MORPH_RECT, Size(35, 35), Point(-1, -1));
+    cv::Mat structureElement = getStructuringElement(MORPH_RECT, Size(35, 35), Point(-1, -1));
 	//结构元到底是多大有待讨论，目前是25 * 2cm = 50cm，约等于底盘半径
 	erode(img_plain_save, img_erode_save, structureElement);
-        //cv::imwrite("erode_map.jpg",img_erode_save);
-
-        imshow("Simulation_Environment@HEUsjh", img_erode_save);cv::waitKey(100);
+    //cv::imwrite("erode_map.jpg",img_erode_save);
+	cout<<img_erode_save.rows<<' '<<img_erode_save.cols<<endl;
+    imshow("Simulation_Environment@HEUsjh", img_erode_save);cv::waitKey(100);
 	for (int i = 0; i < img_erode_save.rows; i++)
 	{
 		for (int j = 0; j < img_erode_save.cols; j++)
@@ -251,6 +255,19 @@ void init_load_map()
 			else a[i][j] = -1;
 		}
 	}
+	// cv::Mat temp_map(226, 406, CV_8UC1, cv::Scalar(255));
+
+	// for (int i = 0; i < temp_map.rows; i++)
+	// {
+	// 	for (int j = 0; j < temp_map.cols; j++)
+	// 	{
+	// 		if (a[i][j] == -1) {
+	// 			temp_map.at<uchar>(i, j)  = 0; continue;
+	// 		}
+	// 	}
+	// }
+	// imshow("1111", temp_map);
+	// cv::waitKey(10000);
 	std::cout << "read map complete" << std::endl << std::endl;
 }
 
@@ -439,18 +456,19 @@ void find_corner()
 	corner_vector.clear();
 	draw_path();
 	std::vector<cv::Point> corner_vector_temp;
-	cv::goodFeaturesToTrack(path_map, corner_vector_temp , 100, 0.04, 8, mask, 5, true, 0.04);
+	cv::goodFeaturesToTrack(path_map, corner_vector_temp , 100, 0.04, 4, mask, 5, true, 0.04);
 	
 	//cout << "coner size : " << corner_vector_temp.size() << std::endl;
 
-        //after goodFeaturesToTrack, the corner vector need sort
+	//after goodFeaturesToTrack, the corner vector need sort
+	//the output of that function is not reguarly
 	bool break_flag = 0;
 	for (int i = 1; i <= final_path_i; i++)
 	{
 			std::vector<cv::Point>::iterator it = corner_vector_temp.begin();
 			//不会吧，不会有人对vector熟悉到看到这段代码一点疑惑都没有吧？不会有人还不去查资料吧？
 			while (it != corner_vector_temp.end())
-                        {
+            {
 				if (my_dist(final_path[i].x, final_path[i].y, (*it).y, (*it).x) <= 2)
 				{
                     corner_vector.push_back(*it);
@@ -851,22 +869,35 @@ void path_optimizer()
 
 void path_planner()
 {
-	//while (1) {
-		//refresh_simulation_environment();
 		if (need_replan_path == 1) {
 			std::cout << "Running path_planner..." << std::endl;
+			std::cout<<"need to plan to "<<goalx << ' '<< goaly<<std::endl;
 			img = img_plain_save.clone();
 			//img_final_path = img_plain_save.clone();
 			bool end_flag = 0;
 			Refresh_enemy_fire_cost();//刷新火力地图
+			cv::circle(img_erode_save, cv::Point(goaly, goalx), 2, cv::Scalar(0),2);
+			imshow("Simulation_Environment@HEUsjh", img_erode_save);
+        	waitKey(10);
+			std::cout<<"now x  "<<robot1.x <<"nowy   "<<robot1.y<<std::endl;
+			std::cout<<memory_pool_i<<endl;
+			keep_xy_safe(robot1.x, robot1.y);
 			//构造路径起点，并且令其父节点为自己，便于终止回溯
 			memory_pool[memory_pool_i] = new my_point(0, memory_pool_i, robot1.x, robot1.y);
 			search_queue.push(memory_pool[memory_pool_i]);
+			cv::waitKey(1000);
 			auto t1 = std::chrono::high_resolution_clock::now();
-			while (end_flag == 0)
+			while ((end_flag == 0 || search_queue.empty() == 1) && ros::ok())
 			{
+				
 				//取队首
 				my_point* now = search_queue.top();
+				std::cout<<"nowx, nowy, goalx, goaly"<<now->x<<' '<<now->y<<' ' <<goalx<<' '<<goaly<<std::endl;
+				std::cout<<"queue size = " << search_queue.size()<<std::endl;
+				if (search_queue.size() == -1){
+					return;
+				}
+				//cv::waitKey(500);
 				search_queue.pop();
 				flag[now->x][now->y] = 1;
 
@@ -952,7 +983,12 @@ void path_planner()
 					end_flag = 1;
 					need_replan_path = 0;
 				}
+				
+				std::cout<<now->x+1<<' ' << now->y << ' '<<flag[now->x+1][now->y]<<' '<<a[now->x+1][now->y]<<' '<<end_flag<<endl;
+				std::cout<<now->x+1<<' ' << now->y << ' '<<flag[now->x+1][now->y]<<' '<<a[now->x+1][now->y]<<' '<<end_flag<<endl;
+				std::cout<<now->x+1<<' ' << now->y << ' '<<flag[now->x+1][now->y]<<' '<<a[now->x+1][now->y]<<' '<<end_flag<<endl;
 
+				//cv::waitKey(500);
 				//向下搜索，三个条件分别是：没有越过地图边界，没有走过，可以走上去（不是墙）
 				//其实越界这个可以删掉的，因为我画地图的时候就画了边界
 				//不过加了更放心（心理作用罢了）
@@ -1022,10 +1058,9 @@ void path_planner()
 				}
 
 			}
+			printf("search complete!!!\n");
 			//std::cout << "out while";
 		}
-		//std::cout << "out if ";
-	//}
 }
 
 void delete_now_path()
@@ -1100,81 +1135,43 @@ double get_k(std::vector<cv::Point>my_line)
 	return angle;
 }
 
-void update_velocity_callback(const move_control:: velocity :: ConstPtr& msg_receive)
-{
-	auto t1 = std::chrono::high_resolution_clock::now();
-        auto dt = ((static_cast<std::chrono::duration<float, std::milli>>(t1- last_receive_time)).count()) / (double)(1000.0);
-        last_receive_time = t1;
-        if (abs(msg_receive->omiga) > 500) return;
-        robot1.angle = msg_receive->omiga;
-        if (std::abs((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354)) * (double)(dt / 1000.0))>10000) return;
-        if (std::abs((msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354)) * (double)(dt / 1000.0))>10000) return;
-        //robot1.y += ((msg_receive->vx * std::cos(robot1.angle) - msg_receive->vy * std::sin(robot1.angle)) * (double)(dt / 1000.0)) / 2;
-        //robot1.x += ((msg_receive->vx * std::sin(robot1.angle) + msg_receive->vy * std::cos(robot1.angle)) * (double)(dt / 1000.0)) / 2;
-        //if (robot1.angle < 0) {
-            robot1.y += (((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354)) )* (double)(dt )) / 2;
-            robot1.x += (((msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354)) )* (double)(dt )) / 2;
-        //ROS_INFO("dy= %lf* %lf+ %lf* %lf= %lf\n",msg_receive->vx, std::cos(robot1.angle / 180.0 * 3.14159265354), msg_receive->vy, std::sin(robot1.angle / 180.0 * 3.14159265354), ((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354))));
-        //ROS_INFO("dx= %lf* %lf- %lf* %lf= %lf\n",msg_receive->vy, std::cos(robot1.angle / 180.0 * 3.14159265354), msg_receive->vx, std::sin(robot1.angle / 180.0 * 3.14159265354), ((msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354))));
-        //}
-        //else
-        //{
-        //    robot1.x += (((msg_receive->vx * std::sin(robot1.angle / 180.0 / 3.14159265354) + msg_receive->vy * std::cos(robot1.angle / 180.0 / 3.14159265354)) )* (double)(dt / 1000.0)) / 2;
-        //    robot1.y += (((msg_receive->vy * std::cos(robot1.angle / 180.0 / 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 / 3.14159265354)) )* (double)(dt / 1000.0)) / 2;
+// void update_velocity_callback(const move_control:: velocity :: ConstPtr& msg_receive)
+// {
+// 	robot1.x = (msg_receive->vx) / 1000 / 2;
+// 	robot1.y = (msg_receive->vy) / 1000 / 2;
+// 	//auto t1 = std::chrono::high_resolution_clock::now();
+//         // auto dt = ((static_cast<std::chrono::duration<float, std::milli>>(t1- last_receive_time)).count()) / (double)(1000.0);
+//         // last_receive_time = t1;
+//         // if (abs(msg_receive->omiga) > 500) return;
+//         // robot1.angle = msg_receive->omiga;
+//         // if (std::abs((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354)) * (double)(dt / 1000.0))>10000) return;
+//         // if (std::abs((msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354)) * (double)(dt / 1000.0))>10000) return;
+//         // //robot1.y += ((msg_receive->vx * std::cos(robot1.angle) - msg_receive->vy * std::sin(robot1.angle)) * (double)(dt / 1000.0)) / 2;
+//         // //robot1.x += ((msg_receive->vx * std::sin(robot1.angle) + msg_receive->vy * std::cos(robot1.angle)) * (double)(dt / 1000.0)) / 2;
+//         // //if (robot1.angle < 0) {
+//         //     robot1.y += (((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354)) )* (double)(dt )) / 2;
+//         //     robot1.x += (((msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354)) )* (double)(dt )) / (2);
+//         //ROS_INFO("dy= %lf* %lf+ %lf* %lf= %lf\n",msg_receive->vx, std::cos(robot1.angle / 180.0 * 3.14159265354), msg_receive->vy, std::sin(robot1.angle / 180.0 * 3.14159265354), ((msg_receive->vx * std::cos(robot1.angle / 180.0 * 3.14159265354) + msg_receive->vy * std::sin(robot1.angle / 180.0 * 3.14159265354))));
+//         //ROS_INFO("dx= %lf* %lf- %lf* %lf= %lf\n",msg_receive->vy, std::cos(robot1.angle / 180.0 * 3.14159265354), msg_receive->vx, std::sin(robot1.angle / 180.0 * 3.14159265354), ((msg_receive->vy * std::cos(robot1.angle / 180.0 * 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 * 3.14159265354))));
+//         //}
+//         //else
+//         //{
+//         //    robot1.x += (((msg_receive->vx * std::sin(robot1.angle / 180.0 / 3.14159265354) + msg_receive->vy * std::cos(robot1.angle / 180.0 / 3.14159265354)) )* (double)(dt / 1000.0)) / 2;
+//         //    robot1.y += (((msg_receive->vy * std::cos(robot1.angle / 180.0 / 3.14159265354) - msg_receive->vx * std::sin(robot1.angle / 180.0 / 3.14159265354)) )* (double)(dt / 1000.0)) / 2;
 
-        //}
-        //robot1.y += 0.0;
-        //ROS_INFO("vx = %lf y = %f ", robot1.x, robot1.y);
-        //ROS_INFO("vx = %lf vy = %lf angle:%lf", msg_receive->vx, msg_receive->vy,msg_receive->omiga);
-}
+//         //}
+//         //robot1.y += 0.0;
+//         //ROS_INFO("vx = %lf y = %f ", robot1.x, robot1.y);
+//         //ROS_INFO("vx = %lf vy = %lf angle:%lf", msg_receive->vx, msg_receive->vy,msg_receive->omiga);
+// }
 
-#if USE_PID_MOVE_CONTROL
+
+#define USE_PID_MOVE_CONTROL 1
 double last_errorx, last_errory, errorx, errory, PID_dt;
 auto lasttime = std::chrono::high_resolution_clock::now();
-double kd, kp; bool first_flag = 0;
+double kd = 0.1*0, kp = 0.02; bool PID_first_flag = 0;
 
-//第一个参数是用来发布的ROS通信句柄
-//第二个参数是当前控制的目标点
-void PID_move_control(const auto& move_control_publisher, cv::Point goalpoint)
-{
-	//计算当前位置误差
-	errorx = goalx - robot1.x;
-	errory = goaly - robot1.y;
-
-	if (first_flag == 0){
-		first_flag = 1;
-		last_errorx = errorx;
-		last_errory = errory;
-		lasttime = std::chrono::high_resolution_clock::now();
-	}
-	
-	if (first_flag == 1) PID_dt = ((static_cast<std::chrono::duration<double, std::milli>>(t2 - lasttime)).count())/1000;
-		else PID_dt = 10000000; //防止被0除，不过其实上面已经把error差置零了，被0除也没有关系
-
-	//计算vx, vy
-	double control_vx, control_vy;
-	control_vx = kp * (errorx  + kd * abs(last_errorx - errorx) / PID_dt);
-	control_vy = kp * (errory  + kd * abs(last_errory - errory) / PID_dt);
-
-	//限幅
-	if (control_vx >= 0.8) control_vx = 0.8;
-	if (control_vy >= 0.8) control_vy = 0.8;
-
-	//准备发送控制帧
-	move_control :: my_control_frame _Contraldata;
-	_Contraldata.vx = control_vx;
-	_Contraldata.vy = control_vy;
-	_Contraldata.angle = 0;
-	move_control_publisher.publish(_Contraldata);
-	ROS_INFO("c_vx= %lf; goal=(%d,%d) next_c: %d;  now:%d; total:%d\n",robot1.x, robot1.y, final_path[now].next_corner_dis, now, robot1.angle, controlframe.angle,controlframe.vx,  goalx, goaly,final_path[now].nextcorner, now,final_path_i);
-
-	ros::spinOnce();
-
-	//更新last_error
-	last_errorx = errorx;
-    last_errory = errory;
-}
-#endif
+void PID_move_control(const auto&, float, float);
 
 void Navigation_base_on_odom(const auto& move_control_publisher)
 {
@@ -1183,6 +1180,35 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 #if WATCH_ROAD_PLAN
         while(1);
 #endif
+
+#if USE_PID_MOVE_CONTROL
+	int next_corner = 0;
+	while (next_corner < corner_vector.size() && ros::ok()){
+		//Attention, corner_vector is the output of OpenCV API, so the xy of its point is oppisite of ours
+		if (my_dist(robot1.x, robot1.y, corner_vector[next_corner].y, corner_vector[next_corner].x) < 2)
+			next_corner++;	//switch to next goal point
+		
+		//准备发送控制帧
+		// move_control :: my_control_frame _Contraldata;
+		// _Contraldata.vx = float(corner_vector[next_corner].y) * 2;
+		// _Contraldata.vy = float(corner_vector[next_corner].x) * 2;
+		// _Contraldata.angle = 1;
+		// move_control_publisher.publish(_Contraldata);
+		// printf("sending control frame, x,y = (%f, %f), my x,y = (%f. %f)\n", _Contraldata.vx, _Contraldata.vy, robot1.x, robot1.y);
+		PID_move_control(move_control_publisher, float(corner_vector[next_corner].y), float(corner_vector[next_corner].x));
+
+		//printf("corner vector size = %d, next_corner = %d  x,y = (%f, %f)\n", corner_vector.size(),  next_corner, float(corner_vector[next_corner].y), float(corner_vector[next_corner].x));
+		printf("%d  %d", robot1.x, robot1.y);
+		circle(img_final_path, cv::Point(robot1.y, robot1.x), 2, Scalar(0), -1);
+		circle(img_final_path, cv::Point(corner_vector[next_corner].x, corner_vector[next_corner].y), 3, Scalar(0), -1);
+        imshow("Simulation_Environment2@HEUsjh", img_final_path);
+        waitKey(10);
+		ros::spinOnce();
+	}
+	printf("PID control succed!!!\n");
+	PID_first_flag = 0;
+#else
+
 	//当前处于corner[now_path]-corner[now_path+1]路段上
 	int now_path = 0;
 	//当前是路径上面的哪一个节点，对应于final_path[now[
@@ -1208,27 +1234,22 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 				mmin_number = i;
 			}
 		}
-                now = mmin_number;
-                controlframe.angle = final_path[now].should_angle;
-                //std::cout << "Now position:   X: " << robot1.x << "  Y: " << robot1.y << "  Angle: " << robot1.angle << "  next corner dist is  " << final_path[now].next_corner_dis << "  next corner is: " << final_path[now].nextcorner<<std::endl;
-                //ROS_INFO("X: %lf;  Y: %lf; goalx= %d  goaly= %d;  dis=%lf;  angle=%lf;  cont_ang= %d;  next_c: %d;  now:%d; total:%d \n",robot1.x, robot1.y, corner_vector[final_path[now].nextcorner].y, corner_vector[final_path[now].nextcorner].x, final_path[now].next_corner_dis,robot1.angle, controlframe.angle,final_path[now].nextcorner, now,final_path_i );
-                ROS_INFO("X:%lf; Y:%lf; dis=%lf; now=%d; angle=%lf; cont_ang= %d; c_vx= %lf; goal=(%d,%d) next_c: %d;  now:%d; total:%d\n",robot1.x, robot1.y, final_path[now].next_corner_dis, now, robot1.angle, controlframe.angle,controlframe.vx,  goalx, goaly,final_path[now].nextcorner, now,final_path_i);
-                //std::cout << "now is:  "<<now << ' ';
+        now = mmin_number;
+        controlframe.angle = final_path[now].should_angle;
+        //std::cout << "Now position:   X: " << robot1.x << "  Y: " << robot1.y << "  Angle: " << robot1.angle << "  next corner dist is  " << final_path[now].next_corner_dis << "  next corner is: " << final_path[now].nextcorner<<std::endl;
+        //ROS_INFO("X: %lf;  Y: %lf; goalx= %d  goaly= %d;  dis=%lf;  angle=%lf;  cont_ang= %d;  next_c: %d;  now:%d; total:%d \n",robot1.x, robot1.y, corner_vector[final_path[now].nextcorner].y, corner_vector[final_path[now].nextcorner].x, final_path[now].next_corner_dis,robot1.angle, controlframe.angle,final_path[now].nextcorner, now,final_path_i );
+        ROS_INFO("X:%lf; Y:%lf; dis=%lf; now=%d; angle=%lf; cont_ang= %d; c_vx= %lf; goal=(%d,%d) next_c: %d;  now:%d; total:%d\n",robot1.x, robot1.y, final_path[now].next_corner_dis, now, robot1.angle, controlframe.angle,controlframe.vx,  goalx, goaly,final_path[now].nextcorner, now,final_path_i);
+        //std::cout << "now is:  "<<now << ' ';
 		//转弯提前量10cm / 2cm = 5
 		
-
-
 		//做出速度控制决策
-                if (final_path[now].next_corner_dis <= 2 && now!=1 && now!=2)
-		{
+        if (final_path[now].next_corner_dis <= 2 && now!=1 && now!=2){
 			//cout << "---------------arrive corner----" << std::endl;
 			controlframe.vx = 0;
 			controlframe.vy = 0;
 		}
-		else
-		{
-
-            controlframe.vx = 0.8;
+		else{
+            controlframe.vx = 0.4;
 			controlframe.vy = 0;
 		}
 
@@ -1261,8 +1282,9 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 		//std::cout << "next corner x:  " << corner_vector[final_path[now].nextcorner].y << "  y: "<< corner_vector[final_path[now].nextcorner].x<<"   cos(angle) is:  " << std::cos(robot1.angle / 180.0 * 3.1415926)<<std::endl;
 		//发布速度控制信息
 		//ros::
-        rate.sleep();
+                rate.sleep();
 	}
+#endif
 	stop_navigation_flag = 0;
     need_replan_path = 0;
 }
@@ -1297,6 +1319,82 @@ void Navigation()
 	}
 }
 
+#if USE_PID_MOVE_CONTROL
+
+//第一个参数是用来发布的ROS通信句柄
+//第二个参数是当前控制的目标点
+void PID_move_control(const auto& move_control_publisher, float goalpoint_x, float goalpoint_y)
+{
+	//计算当前位置误差
+	errorx = (int(goalpoint_x) - robot1.x);
+	errory = int(goalpoint_y) - robot1.y;
+
+	if (PID_first_flag == 0){
+		PID_first_flag = 1;
+		last_errorx = errorx;
+		last_errory = errory;
+		lasttime = std::chrono::high_resolution_clock::now();
+		return;
+	}
+	
+	if (PID_first_flag == 1){
+		auto lasttime2 = std::chrono::high_resolution_clock::now();
+		PID_dt = ((static_cast<std::chrono::duration<double, std::milli>>(lasttime2 - lasttime)).count())/1000;
+		lasttime = std::chrono::high_resolution_clock::now();
+	}
+
+	//计算vx, vy
+	double control_vx, control_vy;
+	control_vx = kp * (errorx  + kd * (last_errorx - errorx) / PID_dt);
+	control_vy = kp * (errory  + kd * (last_errory - errory) / PID_dt);
+
+	//限幅
+	if (abs(control_vx) >= 0.2){
+		if (control_vx > 0) control_vx = 0.2;
+			else control_vx = -0.2;
+	}
+	if (abs(control_vy) >= 0.2){
+		if (control_vy > 0) control_vy = 0.2;
+			else control_vy = -0.2;
+	}
+
+	//准备发送控制帧
+	move_control :: my_control_frame _Contraldata;
+	_Contraldata.vx = control_vy * 1000.0;
+	_Contraldata.vy = control_vx * 1000.0;
+	_Contraldata.angle = 0;
+	move_control_publisher.publish(_Contraldata);
+
+	printf("control_v = (%1f, %1f);   goal = (%1f, %1f)  now = (%d, %d)  error = (%1f, %1f);\n",control_vx, control_vy, goalpoint_x, goalpoint_y, robot1.x, robot1.y, errorx, errory);
+
+	ros::spinOnce();
+
+	//更新last_error
+	last_errorx = errorx;
+    last_errory = errory;
+}
+#endif
+
+
+void update_command_callback(const geometry_msgs :: Point ::ConstPtr& msg_receive)
+{
+	printf("Received goalx = %d, goaly = %d, now_state = %d\n", int(msg_receive->y), int(msg_receive->x), need_replan_path);
+	enemy1.x =(msg_receive -> z) % 1000; enemy1.y = (msg_receive -> z) / 1000;
+	if (need_replan_path == 0){
+		if ((int(msg_receive->y) - robot1.x) * (int(msg_receive->y) - robot1.x) + (int(msg_receive->x) - robot1.y) * (int(msg_receive->x) - robot1.y) >= 10){
+			goalx = msg_receive->y;
+			goaly = msg_receive->x;
+			keep_xy_safe(goalx, goaly);
+			need_replan_path = 1;
+
+			printf("Listend command from TCP server, will plan to go to :\n");
+			printf("goalx = %d,       goaly = %d\n", goalx, goaly);
+		}
+		else printf("too near,  dist = %d now = (%d, %d); goal = (%d, %d)\n", (goalx - robot1.x) * (goalx - robot1.x) + (goaly - robot1.y) * (goaly - robot1.y), robot1.x, robot1.y, goalx, goaly);
+	}
+	else printf("Busy\n");
+}
+
 //set robot init position
 //1       2
 //4       3
@@ -1312,12 +1410,9 @@ void init_robot_position(int num)
     robot1.angle = nowangle;
 }
 
-void update_goalpoint_callback(const move_control:: TCPmessage_receive :: ConstPtr& msg_receive)
-{
-	goalx = msg_receive.goalx;
-	goaly = msg_receive.goaly;
-	return;
-}
+void update_position_callback (const geometry_msgs::Point::ConstPtr& msg_recv);
+
+void update_race_state_callback(const move_control :: race_state :: ConstPtr& msg_recv);
 
 int main(int argc, char **argv)
 {	
@@ -1329,13 +1424,15 @@ int main(int argc, char **argv)
 				communication_handle_obj.advertise <move_control :: my_control_frame> ("/robot_control",10);
 
     //订阅消息
-    ros::Subscriber move_control_subscriber = communication_handle_obj.subscribe("/velocity", 10, update_velocity_callback);
-    ros::Subscriber goalpoint_subscriber = communication_handle_obj.subscribe("/goalpoint", 10, update_goalpoint_callback);
+   // ros::Subscriber race_state_subscriber = communication_handle_obj.subscribe("/velocity", 10, update_race_state_callback);
+	ros::Subscriber now_pos_subscriber = communication_handle_obj.subscribe("/now_pos", 10, update_position_callback);
+
+	ros::Subscriber my_command_listener = communication_handle_obj.subscribe("/TCP_command_listener", 10, update_command_callback);
+
+	ros::Subscriber race_state_listener = communication_handle_obj.subscribe("/race_state", 10, update_race_state_callback);
+
 
 	//program_start_time = std::chrono::high_resolution_clock::now();//时，万物之始也
-
-	// while (_Serial.openPort() != rm::Serial::SUCCESS);
-        // _Serial.setDebug(true);
 
 	init_load_map();//加载地图
 	init_load_wall_line();//加载墙壁信息
@@ -1344,30 +1441,21 @@ int main(int argc, char **argv)
 	namedWindow("Simulation_Environment@HEUsjh");//创建仿真环境窗口
 	setMouseCallback("Simulation_Environment@HEUsjh", mouse_handle);//挂载鼠标事件回调函数
 
-    init_robot_position(1);
+    //init_robot_position(1);
 
 	need_replan_path = 0;
 	img = img_plain_save.clone(); 
 	img_final_path = img_plain_save.clone();
+	
 
-	/*for (int i=1;i<=img.rows;i++)
-		for (int j = 1; j <= img.cols; j++)
-		{
-			if (is_met(enemy1, i, j) == 1)gggmap.at<uchar>(i, j) = 255;
-			else gggmap.at<uchar>(i, j) = 0;
-		}
-	imshow("124134", gggmap);
-	waitKey(10000);*/
 	//进入工作
-	while (1)
+	while (ros::ok())
 	{
 		if (need_replan_path == 1) { 
+			//delete_now_path();
 			auto t1 = std::chrono::high_resolution_clock::now();
 			path_planner(); 
             path_optimizer();
-#if USE_PID_MOVE_CONTROL
-			PID_move_control(move_control_publisher, );
-#endif
 			Navigation_base_on_odom(move_control_publisher);
 			delete_now_path(); //需要注意的是final_path的删除时机
 			auto t2 = std::chrono::high_resolution_clock::now();
@@ -1377,13 +1465,93 @@ int main(int argc, char **argv)
 		}
 		//Navigation();
 		//draw_path();
+
+		 move_control :: my_control_frame _Contraldata;
+		 _Contraldata.vx = 0;
+		 _Contraldata.vy = 0;
+		 _Contraldata.angle = 0;
+		 move_control_publisher.publish(_Contraldata);
+
+		circle(img_final_path, cv::Point(robot1.y, robot1.x), 2, Scalar(0), -1);
+        imshow("Simulation_Environment2@HEUsjh", img_final_path);
+        waitKey(10);
+
         imshow("Simulation_Environment@HEUsjh", img_erode_save);
-        imshow("Simulation_Environment3@HEUsjh", img);
-		imshow("Simulation_Environment2@HEUsjh", img_final_path);
-        //ROS_INFO("Waitting command!!!\n");
-		waitKey(1);
+        //imshow("Simulation_Environment3@HEUsjh", img);
+		//imshow("Simulation_Environment2@HEUsjh", img_final_path);
 		ros::spinOnce();
+        //ROS_INFO("Searching hit goal!!!\n");
+		waitKey(1);
+	// 	goalx = 30; goaly = 100;
+	// need_replan_path = 1;
+		
 	}
+}
+
+cv::Point get_zone_locate(int num)
+{
+
+}
+
+void add_cant_go(cv::Point center,int long)
+{
+
+}
+
+void update_race_state_callback(const move_control :: race_state :: ConstPtr& msg_recv)
+{
+	robot1.HP = msg_recv->self_1_HP_left;
+	robot1.MP = msg_recv->self_1_bullet_left;
+	for (int i=0;i<=5;i++)
+	{
+		zone[i] = msg_recv->zone[i];
+		zone_status[i] = msg_recv->zone_status[i];
+		if (msg_recv->myteam == 2 && zone[i] == 2 && zone_status[i] == 1){//red 2 blue 1
+			if (need_replan_path == 0){
+				goalx = get_zone_locate(i).x;
+				goaly = get_zone_locate(i).y;
+			}
+		}
+
+		if (msg_recv->myteam == 1 && zone[i] == 4 && zone_status[i] == 1)
+		{
+			if (need_replan_path == 0){
+				goalx = get_zone_locate(i).x;
+				goaly = get_zone_locate(i).y;
+			}
+		}
+
+		if (msg_recv->myteam == 2 && zone[i] == 1 && zone_status[i] == 1){
+			if (2000 - robot1.HP >= 200){
+				goalx = get_zone_locate(i).x;
+				goaly = get_zone_locate(i).y;
+			}
+		}
+
+		if (msg_recv->myteam == 1 && zone[i] == 3 && zone_status[i] == 1){
+			if (2000 - robot1.HP >= 200){
+				goalx = get_zone_locate(i).x;
+				goaly = get_zone_locate(i).y;
+			}
+		}
+
+		if (zone[i] == 5 && zone_status[i] == 1){
+			add_cant_go(get_zone_locate(i), 30);
+		}
+
+		if (zone[i] == 6 && zone_status[i] == 1){
+			add_cant_go(get_zone_locate(i), 30);
+		}
+	}
+	return;
+}
+
+
+void update_position_callback (const geometry_msgs::Point::ConstPtr& msg_recv)
+{
+	robot1.x = (msg_recv->x) * 1000 / 20;
+	robot1.y = (msg_recv->y) * 1000 / 20;
+	//printf("recv = (%f, %f)  now robotx = %d, now roboty = %d\n", msg_recv->x, msg_recv->y, robot1.x, robot1.y);
 }
 
 //注意，这里的xy坐标系是和opencv cv::Mat坐标系是反过来的，也就是行是x，列是y
@@ -1464,9 +1632,11 @@ void mouse_handle(int event, int x, int y, int flags, void* param)
 	{
 	//左键单击发布终点
 	case EVENT_LBUTTONDOWN:
-		goalx = y;
-		goaly = x;
-                cout<<"need replan path "<< x << "   "<<y<<endl;
+		
+		goalx = y;//y
+		goaly = x;//x
+		keep_xy_safe(goalx, goaly);
+    	cout<<"need replan path "<< x << "   "<<y<<endl;
 		need_replan_path = 1;
 		break;
 	//右键单击发布敌人坐标
@@ -1475,4 +1645,22 @@ void mouse_handle(int event, int x, int y, int flags, void* param)
 		enemy1.y = x;
 		break;
 	}
+}
+
+void keep_xy_safe(int& x, int& y)
+{
+	if (a[x][y] == -1){
+		int my_mmin = 99999, mmin_x,mmin_y;
+		for (int i=0;i<img_erode_save.rows;i++)
+			for (int j=0;j<img_erode_save.cols;j++)
+				if (((i-x) * (i-x) + (j-y) * (j-y) < my_mmin) && (a[i][j] == 0)){
+					my_mmin = (i-x) * (i-x) + (j-y)*(j-y);
+					mmin_x = i;
+					mmin_y = j;
+				}
+		x = mmin_x;
+		y = mmin_y;
+	}
+	else
+		return;
 }
