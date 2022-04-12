@@ -192,6 +192,11 @@ void init_load_erode_wall_line();
 //仿真环境鼠标时间回调函数
 void mouse_handle(int event, int x, int y, int flags, void* param);
 void keep_xy_safe(int& x, int& y);
+//这两个函数本来可以复用的，但是我怕后来人弄不明白怎么复用
+//还是弄成两个函数，用名字区别吧
+void add_cant_go(cv::Point, int);
+void delete_cant_go(cv::Point, int);
+
 
 //算距离，这你要是看不出来那你是有点憨
 double my_dist(int x1, int y1, int x2, int y2)
@@ -878,18 +883,22 @@ void path_planner()
 			Refresh_enemy_fire_cost();//刷新火力地图
 			cv::circle(img_erode_save, cv::Point(goaly, goalx), 2, cv::Scalar(0),2);
 			imshow("Simulation_Environment@HEUsjh", img_erode_save);
-        	waitKey(10);
+			waitKey(10);
 			std::cout<<"now x  "<<robot1.x <<"nowy   "<<robot1.y<<std::endl;
 			std::cout<<memory_pool_i<<endl;
 			keep_xy_safe(robot1.x, robot1.y);
 			//构造路径起点，并且令其父节点为自己，便于终止回溯
 			memory_pool[memory_pool_i] = new my_point(0, memory_pool_i, robot1.x, robot1.y);
 			search_queue.push(memory_pool[memory_pool_i]);
-			cv::waitKey(1000);
+			//cv::waitKey(1000);
 			auto t1 = std::chrono::high_resolution_clock::now();
-			while ((end_flag == 0 || search_queue.empty() == 1) && ros::ok())
+			//搜索继续的必须条件:搜索没有被强制终止， 搜索队列非空， 控制台程序没有被终止
+			while (end_flag == 0 && search_queue.empty() == 0 && ros::ok())
 			{
-				
+				if (search_queue.empty() == 1){
+					std::cout<<"Search queue is empty, please check now position or goal point. Is they are in the wall??"<<std::endl;
+					break;
+				}
 				//取队首
 				my_point* now = search_queue.top();
 				std::cout<<"nowx, nowy, goalx, goaly"<<now->x<<' '<<now->y<<' ' <<goalx<<' '<<goaly<<std::endl;
@@ -1379,7 +1388,16 @@ void PID_move_control(const auto& move_control_publisher, float goalpoint_x, flo
 void update_command_callback(const geometry_msgs :: Point ::ConstPtr& msg_receive)
 {
 	printf("Received goalx = %d, goaly = %d, now_state = %d\n", int(msg_receive->y), int(msg_receive->x), need_replan_path);
-	enemy1.x =(msg_receive -> z) % 1000; enemy1.y = (msg_receive -> z) / 1000;
+	
+	//接收的敌人信息的处理
+	// delete_cant_go(cv::Point(enemy1.x, enemy1.y), 20);
+	// enemy1.x =(msg_receive -> z) % 1000; enemy1.y = (msg_receive -> z) / 1000;
+	// //防止因为敌人的识别掉帧导致把自己给腐蚀了
+	// if (((enemy1.x - robot1.x) * (enemy1.x - robot1.x) + (enemy1.y - robot1.y) * (enemy1.y - robot1.y)) > 10){
+	// 	add_cant_go(cv::Point(enemy1.x, enemy1.y), 20);
+	// 	printf("enemy position (x, y) = (%d, %d)\n", enemy1.x, enemy1.y);
+	// }
+
 	if (need_replan_path == 0){
 		if ((int(msg_receive->y) - robot1.x) * (int(msg_receive->y) - robot1.x) + (int(msg_receive->x) - robot1.y) * (int(msg_receive->x) - robot1.y) >= 10){
 			goalx = msg_receive->y;
@@ -1466,11 +1484,11 @@ int main(int argc, char **argv)
 		//Navigation();
 		//draw_path();
 
-		 move_control :: my_control_frame _Contraldata;
-		 _Contraldata.vx = 0;
-		 _Contraldata.vy = 0;
-		 _Contraldata.angle = 0;
-		 move_control_publisher.publish(_Contraldata);
+		move_control :: my_control_frame _Contraldata;
+		_Contraldata.vx = 0;
+		_Contraldata.vy = 0;
+		_Contraldata.angle = 0;
+		move_control_publisher.publish(_Contraldata);
 
 		circle(img_final_path, cv::Point(robot1.y, robot1.x), 2, Scalar(0), -1);
         imshow("Simulation_Environment2@HEUsjh", img_final_path);
@@ -1488,14 +1506,82 @@ int main(int argc, char **argv)
 	}
 }
 
+//返回每一个加成惩罚区的位置
+//需要注意的是这里虽然返回的是cv::Point
+//但是这只是我为了传参数用的数据类型
+//不代表它就是opencv Mat坐标系下的坐标。实际仍然是我们自己的地图坐标系下的坐标
 cv::Point get_zone_locate(int num)
 {
-
+	if (num == 1)
+		return cv::Point(144, 367);
+	if (num == 2)
+		return cv::Point(80, 322);
+	if (num == 4)
+		return cv::Point(24, 204);
+	if (num == 3)
+		return cv::Point(201, 202);
+	if (num == 5)
+		return cv::Point(146, 85);
+	if (num == 6)
+		return cv::Point(84, 40);
 }
 
 void add_cant_go(cv::Point center,int long)
 {
+	int x = center.x;
+	int y = center.y;
+	
+	//第一象限
+	for (int i = x; i <= x + long / 2; i++)
+		for (int j = y; j <= y + long / 2; j++)
+			a[i][j] = 1;
 
+	//第二象限
+	for (int i = x; i >= x - long / 2; i--)
+		for (int j = y; j <= y + long / 2; j++)
+			a[i][j] = 1;
+
+	//第三象限
+	for (int i = x; i >= x - long / 2; i--)
+		for (int j = y; j >= y - long / 2; j--)
+			a[i][j] = 1;
+
+	//第四象限
+	for (int i = x; i <= x + long / 2; i++)
+		for (int j = y; j >= y - long / 2; j--)
+			a[i][j] = 1;
+
+	//设置动态禁行区成功
+	return;
+}
+
+void delete_cant_go(cv::Point center, int long)
+{
+	int x = center.x;
+	int y = center.y;
+	
+	//第一象限
+	for (int i = x; i <= x + long / 2; i++)
+		for (int j = y; j <= y + long / 2; j++)
+			a[i][j] = 0;
+
+	//第二象限
+	for (int i = x; i >= x - long / 2; i--)
+		for (int j = y; j <= y + long / 2; j++)
+			a[i][j] = 0;
+
+	//第三象限
+	for (int i = x; i >= x - long / 2; i--)
+		for (int j = y; j >= y - long / 2; j--)
+			a[i][j] = 0;
+
+	//第四象限
+	for (int i = x; i <= x + long / 2; i++)
+		for (int j = y; j >= y - long / 2; j--)
+			a[i][j] = 0;
+
+	//设置动态禁行区成功
+	return;
 }
 
 void update_race_state_callback(const move_control :: race_state :: ConstPtr& msg_recv)
@@ -1506,7 +1592,9 @@ void update_race_state_callback(const move_control :: race_state :: ConstPtr& ms
 	{
 		zone[i] = msg_recv->zone[i];
 		zone_status[i] = msg_recv->zone_status[i];
-		if (msg_recv->myteam == 2 && zone[i] == 2 && zone_status[i] == 1){//red 2 blue 1
+		//red 2 blue 1
+		//有加子弹的buff就直接吃
+		if (msg_recv->myteam == 2 && zone[i] == 2 && zone_status[i] == 1){
 			if (need_replan_path == 0){
 				goalx = get_zone_locate(i).x;
 				goaly = get_zone_locate(i).y;
@@ -1521,6 +1609,7 @@ void update_race_state_callback(const move_control :: race_state :: ConstPtr& ms
 			}
 		}
 
+		//有加血的buff，等掉血了再吃
 		if (msg_recv->myteam == 2 && zone[i] == 1 && zone_status[i] == 1){
 			if (2000 - robot1.HP >= 200){
 				goalx = get_zone_locate(i).x;
@@ -1535,10 +1624,12 @@ void update_race_state_callback(const move_control :: race_state :: ConstPtr& ms
 			}
 		}
 
+		//惩罚区添加a数组
 		if (zone[i] == 5 && zone_status[i] == 1){
 			add_cant_go(get_zone_locate(i), 30);
 		}
 
+		//惩罚区添加a数组
 		if (zone[i] == 6 && zone_status[i] == 1){
 			add_cant_go(get_zone_locate(i), 30);
 		}
@@ -1636,7 +1727,7 @@ void mouse_handle(int event, int x, int y, int flags, void* param)
 		goalx = y;//y
 		goaly = x;//x
 		keep_xy_safe(goalx, goaly);
-    	cout<<"need replan path "<< x << "   "<<y<<endl;
+		cout<<"need replan path "<< x << "   "<<y<<endl;
 		need_replan_path = 1;
 		break;
 	//右键单击发布敌人坐标
@@ -1647,6 +1738,8 @@ void mouse_handle(int event, int x, int y, int flags, void* param)
 	}
 }
 
+//保证(x,y)不在墙里面，以免路径规划炸了
+//因为是引用，直接传参就可以了
 void keep_xy_safe(int& x, int& y)
 {
 	if (a[x][y] == -1){
