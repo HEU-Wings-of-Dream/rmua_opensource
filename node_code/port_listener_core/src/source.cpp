@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 #ifdef _WIN32
     serial::Serial my_serial("COM6", 460800, serial::Timeout::simpleTimeout(1000));
 #else
-    serial::Serial my_serial("/dev/ttyUSB1", 1500000, serial::Timeout::simpleTimeout(1000));
+    serial::Serial my_serial("/dev/ttyUSB0", 1500000, serial::Timeout::simpleTimeout(1000));
 #endif
 
 #if ROS
@@ -278,29 +278,30 @@ else{
             memcpy(&race_state_struct_msg, &data, sizeof(rm::test_struct));
             //printf("Received race_state_struct bag!\n");
 
-            race_state_sned_buffer.myteam = race_state_struct_send_bag.myteam;
-            race_state_sned_buffer.robot_id = race_state_struct_send_bag.robot_id;
-            race_state_sned_buffer.enemy_1_bullet_left = race_state_struct_send_bag.enemy_1_bullet_left;
-            race_state_sned_buffer.enemy_1_HP_left = race_state_struct_send_bag.enemy_1_HP_left;
-            race_state_sned_buffer.enemy_2_bullet_left = race_state_struct_send_bag.enemy_2_bullet_left;
-            race_state_sned_buffer.enemy_2_HP_left = race_state_struct_send_bag.enemy_2_HP_left;
-            race_state_sned_buffer.self_1_bullet_left = race_state_struct_send_bag.self_1_bullet_left;
-            race_state_sned_buffer.self_1_HP_left = race_state_struct_send_bag.self_1_HP_left;
-            race_state_sned_buffer.self_2_bullet_left = race_state_struct_send_bag.self_2_bullet_left;
-            race_state_sned_buffer.self_2_HP_left = race_state_struct_send_bag.self_2_HP_left;
-            race_state_sned_buffer.lurk_mode = race_state_struct_send_bag.lurk_mode;
-            for (int i = 0; i <=5 ; i++){
-                race_state_sned_buffer.zone[i] = race_state_struct_send_bag.zone[i];
-                race_state_sned_buffer.zone_status[i] = race_state_struct_send_bag.zone_status[i];
+            race_state_sned_buffer.myteam = race_state_struct_msg.myteam;
+            race_state_sned_buffer.robot_id = race_state_struct_msg.robot_id;
+            race_state_sned_buffer.enemy_1_bullet_left = race_state_struct_msg.enemy_1_bullet_left;
+            race_state_sned_buffer.enemy_1_HP_left = race_state_struct_msg.enemy_1_HP_left;
+            race_state_sned_buffer.enemy_2_bullet_left = race_state_struct_msg.enemy_2_bullet_left;
+            race_state_sned_buffer.enemy_2_HP_left = race_state_struct_msg.enemy_2_HP_left;
+            race_state_sned_buffer.self_1_bullet_left = race_state_struct_msg.self_1_bullet_left;
+            race_state_sned_buffer.self_1_HP_left = race_state_struct_msg.self_1_HP_left;
+            race_state_sned_buffer.self_2_bullet_left = race_state_struct_msg.self_2_bullet_left;
+            race_state_sned_buffer.self_2_HP_left = race_state_struct_msg.self_2_HP_left;
+            race_state_sned_buffer.lurk_mode = race_state_struct_msg.lurk_mode;
+            for (int i = 0; i <= 5 ; i++){
+                race_state_sned_buffer.zone[i] = race_state_struct_msg.zone[i];
+                printf("%d ", race_state_sned_buffer.zone[i]);
             }
-
+            printf("\n");
+            printf("%d      %d    %d\n", race_state_sned_buffer.robot_id, race_state_struct_msg.self_1_HP_left, race_state_struct_msg.self_1_bullet_left);
             race_state_publisher.publish(race_state_sned_buffer);
         }
 
         if (which_bag == 2) {
             rm::autoaim_feedback_struct autoaim_feedback_struct_msg;
             memcpy(&autoaim_feedback_struct_msg, &data, sizeof(rm::test_struct));
-            printf("Received autoaim_feedback_struct bag!\n");
+            //printf("Received autoaim_feedback_struct bag!\n");
         }
 if ((USE_UNION_STRUCT == 0)){
         if (need_to_send_autoaim_flag == 1){
@@ -316,7 +317,7 @@ if ((USE_UNION_STRUCT == 0)){
             my_serial.write(send_buffer2, sizeof(send_buffer2));
             need_to_send_autoaim_flag = 0;
                  
-            printf("send autoaim message succed!!\n");
+            //printf("send autoaim message succed!!\n");
             lost_goal = 0;
         }
         else{

@@ -310,7 +310,7 @@ namespace rm
                     my_new_controlframe.angular.x = float_rounding(_Armor._solve.LightBarLenRatio * 1000.0f);
                     my_new_controlframe.angular.y = _Armor._solve.AromrType;
                     my_new_controlframe.angular.z = (now_time - _Armor.ImageFrame.timeStamp);
-                    need_to_publish = 1;
+                    //need_to_publish = 1;
                     //printf("need to publish = 1");
                     _Contraldata.x = float_rounding(Point.x);
                     _Contraldata.y = float_rounding(Point.y);

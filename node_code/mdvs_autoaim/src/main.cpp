@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 {
     ros::init(argc, argv, "zimiaoshiyan");//初始化节点
     ros::NodeHandle node_obj;//创建通信句柄
-    ros::Publisher auto_aim_publisher = node_obj.advertise <geometry_msgs::Accel>("/auto_aim_task", 10);
+  //  ros::Publisher auto_aim_publisher = node_obj.advertise <geometry_msgs::Accel>("/auto_aim_task", 10);
 
     //   google::InitGoogleLogging(argv[0]);
     //   FLAGS_log_dir = "../HEU_Vision_2020_MDVS/logger/";
@@ -37,17 +37,17 @@ int main(int argc, char *argv[])
     //listenerThread.join();
     //publisherThread.join();
 
-    while(ros::ok())
-    {
-        if (_run.need_to_publish == 1)
-        {
-            printf("control_data == %f   %f   %f %f\n", _run.my_new_controlframe.linear.x, _run.my_new_controlframe.linear.y, _run.my_new_controlframe.linear.z, _run.my_new_controlframe.angular.z);
-            auto_aim_publisher.publish(_run.my_new_controlframe);
-            _run.need_to_publish = 0;
-            ros::spinOnce();
-        }
-        _run.my_rate.sleep();
-    }
+     while(ros::ok());
+    // {
+    //     if (_run.need_to_publish == 1)
+    //     {
+    //         printf("control_data == %f   %f   %f %f\n", _run.my_new_controlframe.linear.x, _run.my_new_controlframe.linear.y, _run.my_new_controlframe.linear.z, _run.my_new_controlframe.angular.z);
+    //         auto_aim_publisher.publish(_run.my_new_controlframe);
+    //         _run.need_to_publish = 0;
+    //         ros::spinOnce();
+    //     }
+    //     _run.my_rate.sleep();
+    // }
 
     return 0;
 }

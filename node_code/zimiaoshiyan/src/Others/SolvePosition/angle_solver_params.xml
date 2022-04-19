@@ -1,0 +1,215 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<Y_DISTANCE_BETWEEN_GUN_AND_CAM>0.</Y_DISTANCE_BETWEEN_GUN_AND_CAM>
+
+
+
+
+
+<CAMERA_MARTRIX_0 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1.2756730531909400e+03 0. 6.1708218538185099e+02 
+    0. 1.2844540747103199e+03 4.2436723248877701e+02 
+    0. 0. 1.</data></CAMERA_MARTRIX_0>
+
+
+<DISTORTION_COEFF_0 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    7.6336077129147001e-02 5.0890560599796797e-02 6.8410002424278103e-03 -6.3674980640115999e-03 0.</data></DISTORTION_COEFF_0>
+    
+    
+    
+    
+
+<CAMERA_MARTRIX_1 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1036.4384350749244277 0.0000000000000000 292.0261922780716191 
+0.0000000000000000 1036.3781158072911239 179.3662802748388856 
+0.0000000000000000 0.0000000000000000 1.0000000000000000  </data></CAMERA_MARTRIX_1>
+
+
+<DISTORTION_COEFF_1 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    -0.5909777022477487 0.3893398559716185 0.0000000000000000 0.0000000000000000 0.1864735122564358 </data></DISTORTION_COEFF_1>  
+    
+    
+      
+    
+    
+<CAMERA_MARTRIX_2 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+  1025.1617329202392739 0.0000000000000000 341.7363058175941433
+  0.0000000000000000 1025.2181222457525109 184.0896934865698142
+  0.0000000000000000 0.0000000000000000 1.0000000000000000  </data></CAMERA_MARTRIX_2>
+   
+    
+<DISTORTION_COEFF_2 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    -0.5601348119216157 -0.1880765590404777 0.0000000000000000 0.0000000000000000 2.8447383368907211 </data></DISTORTION_COEFF_2>
+    
+    
+    
+    
+    
+<CAMERA_MARTRIX_3 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1028.4238282326075478 0.0000000000000000 338.5017792035862385 
+0.0000000000000000 1027.9816269401787849 172.8792720270888594 
+0.0000000000000000 0.0000000000000000 1.0000000000000000  </data></CAMERA_MARTRIX_3>
+    
+    
+<DISTORTION_COEFF_3 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    -0.6112246358974972 0.5154208700429838 0.0000000000000000 0.0000000000000000 -0.0097362528033734 </data></DISTORTION_COEFF_3>    
+    
+    
+    
+    
+    
+<CAMERA_MARTRIX_4 type_id="opencv-matrix"><!--WX605 640*360 60度镜头-->
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1016.0731840659044565 0.0000000000000000 330.2033032624418638 
+0.0000000000000000 1016.0341584645556168 169.7563556029846836 
+0.0000000000000000 0.0000000000000000 1.0000000000000000   </data></CAMERA_MARTRIX_4>
+
+
+<DISTORTION_COEFF_4 type_id="opencv-matrix"><!--WX605 640*360 60度镜头-->
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+   -0.5434184174040717 -0.2627763778445222 0.0000000000000000 0.0000000000000000 2.9672517791924862 </data></DISTORTION_COEFF_4>
+
+
+
+
+
+<CAMERA_MARTRIX_5 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    9.0727852395266996e+02 0. 9.3038434944896596e+02 
+    0. 9.1083076590026599e+02 5.4833111051079095e+02 
+    0. 0. 1.</data></CAMERA_MARTRIX_5>
+    
+    
+<DISTORTION_COEFF_5 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    4.8368764712825800e-02 -5.5324290030714603e-02 -1.8840124234171501e-03 -2.8019009075403898e-04 0.</data></DISTORTION_COEFF_5>    
+
+
+
+    
+    
+<CAMERA_MARTRIX_6 type_id="opencv-matrix"><!--KS2A17 480P 拆的镜头-->
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1024.8765390107969324 0.0000000000000000 339.2096643972594165 
+0.0000000000000000 1024.8941735497023728 167.5430589215398811 
+0.0000000000000000 0.0000000000000000 1.0000000000000000 </data></CAMERA_MARTRIX_6>
+    
+    
+<DISTORTION_COEFF_6 type_id="opencv-matrix"><!--KS2A17 480P 拆的镜头-->
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    -0.6055771712097694 0.4320798923978441 0.0000000000000000 0.0000000000000000 0.2126744975511103</data></DISTORTION_COEFF_6>    
+    
+    
+    
+    
+    
+<CAMERA_MARTRIX_7 type_id="opencv-matrix">
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    1.0693643925255799e+03 0. 9.8274950264502297e+02 
+    0. 1.0691273576306601e+03 5.4380089217006503e+02 
+    0. 0. 1.</data></CAMERA_MARTRIX_7>
+    
+    
+<DISTORTION_COEFF_7 type_id="opencv-matrix">
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    -4.0774568818974699e-01 1.8955055660183801e-01 -2.5099250679188000e-03 4.2984337983608003e-04 0.</data></DISTORTION_COEFF_7>    
+    
+    
+    
+    
+    
+<CAMERA_MARTRIX_8 type_id="opencv-matrix"><!--AX-5610-172.V1.0 480P -->
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+    442.832003582543 0 310.050331984783
+	0 442.450897184039 257.269134806115
+	0 0 1</data></CAMERA_MARTRIX_8>
+
+
+<DISTORTION_COEFF_8 type_id="opencv-matrix"><!--AX-5610-172.V1.0 480P -->
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+    0.0554205664267422	-0.0609082241385660 0 0 0</data></DISTORTION_COEFF_8>
+
+
+
+
+
+<CAMERA_MARTRIX_9 type_id="opencv-matrix"><!--AX-5610-172.V1.0 720P -->
+  <rows>3</rows>
+  <cols>3</cols>
+  <dt>d</dt>
+  <data>
+        1028.6665318993918845 0.0000000000000000 308.4123015396523328 
+0.0000000000000000 1028.5538016934931420 168.7644665120843968 
+0.0000000000000000 0.0000000000000000 1.0000000000000000 </data></CAMERA_MARTRIX_9>
+
+
+<DISTORTION_COEFF_9 type_id="opencv-matrix"><!--AX-5610-172.V1.0 720P -->
+  <rows>5</rows>
+  <cols>1</cols>
+  <dt>d</dt>
+  <data>
+   -0.5866489330960126 0.2517778445735165 0.0000000000000000 0.0000000000000000 0.7408435106607367</data></DISTORTION_COEFF_9>
+
+</opencv_storage>

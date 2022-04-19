@@ -46,7 +46,10 @@ int corner_array[93024]; int number_of_corner = 0;//这里面放的是拐点在path_array
 cv::Mat img, img_plain_save, img_erode_save, simulation_map, path_map(226,406,CV_8UC1,Scalar(255)), mask, img_final_path;//定义地图啥的
 
 int zone[6]{}, zone_status[6]{};
+bool have_i_pass_zone[6]{};
 
+bool is_race_start = 0;
+bool bullet_buff_state = 0;
 //全局通信标记定义
 bool need_replan_path = 1, first_in_simulation_function = 0, stop_navigation_flag = 0;
 
@@ -244,7 +247,7 @@ void init_load_map()
     img_plain_save = cv::imread("/home/ubuntu/catkin/src/move_control/src/map2.png", -1);
 	if (img_plain_save.empty() == 1)cout<<"MAP EMPTY!!"<<std::endl;
 	//腐蚀操作取结构元所指定的领域内值的最小值作为该位置的输出灰度值
-    cv::Mat structureElement = getStructuringElement(MORPH_RECT, Size(35, 35), Point(-1, -1));
+    cv::Mat structureElement = getStructuringElement(MORPH_RECT, Size(40, 40), Point(-1, -1));
 	//结构元到底是多大有待讨论，目前是25 * 2cm = 50cm，约等于底盘半径
 	erode(img_plain_save, img_erode_save, structureElement);
     //cv::imwrite("erode_map.jpg",img_erode_save);
@@ -255,7 +258,7 @@ void init_load_map()
 		for (int j = 0; j < img_erode_save.cols; j++)
 		{
 			if (img_erode_save.at<uchar>(i, j) == 255) {
-				a[i][j] = 0; continue;
+				a[i][j] = 0; 
 			}
 			else a[i][j] = -1;
 		}
@@ -1197,6 +1200,7 @@ void Navigation_base_on_odom(const auto& move_control_publisher)
 		if (my_dist(robot1.x, robot1.y, corner_vector[next_corner].y, corner_vector[next_corner].x) < 2)
 			next_corner++;	//switch to next goal point
 		
+		//if (check_path() == 0) return;
 		//准备发送控制帧
 		// move_control :: my_control_frame _Contraldata;
 		// _Contraldata.vx = float(corner_vector[next_corner].y) * 2;
@@ -1386,27 +1390,29 @@ void PID_move_control(const auto& move_control_publisher, float goalpoint_x, flo
 
 
 void update_command_callback(const geometry_msgs :: Point ::ConstPtr& msg_receive)
-{
-	printf("Received goalx = %d, goaly = %d, now_state = %d\n", int(msg_receive->y), int(msg_receive->x), need_replan_path);
-	
+{	
 	//接收的敌人信息的处理
-	// delete_cant_go(cv::Point(enemy1.x, enemy1.y), 20);
-	// enemy1.x =(msg_receive -> z) % 1000; enemy1.y = (msg_receive -> z) / 1000;
+	if (int(msg_receive -> z) == 2020080119){
+		//delete_cant_go(cv::Point(enemy1.x, enemy1.y), 20);
+		enemy1.x = msg_receive -> y; enemy1.y = msg_receive -> x;
+		//printf("recv enemy = (%d,   %d    %lf)\n", enemy1.x, enemy1.y, msg_receive -> z);
+		return;
+	}
 	// //防止因为敌人的识别掉帧导致把自己给腐蚀了
 	// if (((enemy1.x - robot1.x) * (enemy1.x - robot1.x) + (enemy1.y - robot1.y) * (enemy1.y - robot1.y)) > 10){
 	// 	add_cant_go(cv::Point(enemy1.x, enemy1.y), 20);
 	// 	printf("enemy position (x, y) = (%d, %d)\n", enemy1.x, enemy1.y);
 	// }
-
-	if (need_replan_path == 0){
+	if (is_race_start == 0) return;
+	if ((need_replan_path == 0) && (int(msg_receive -> z) != 2020080119)){
 		if ((int(msg_receive->y) - robot1.x) * (int(msg_receive->y) - robot1.x) + (int(msg_receive->x) - robot1.y) * (int(msg_receive->x) - robot1.y) >= 10){
 			goalx = msg_receive->y;
 			goaly = msg_receive->x;
 			keep_xy_safe(goalx, goaly);
 			need_replan_path = 1;
 
-			printf("Listend command from TCP server, will plan to go to :\n");
-			printf("goalx = %d,       goaly = %d\n", goalx, goaly);
+			//printf("Listend command from TCP server, will plan to go to :\n");
+			printf("recv goalx = %d,       goaly = %d\n", goalx, goaly);
 		}
 		else printf("too near,  dist = %d now = (%d, %d); goal = (%d, %d)\n", (goalx - robot1.x) * (goalx - robot1.x) + (goaly - robot1.y) * (goaly - robot1.y), robot1.x, robot1.y, goalx, goaly);
 	}
@@ -1465,10 +1471,39 @@ int main(int argc, char **argv)
 	img = img_plain_save.clone(); 
 	img_final_path = img_plain_save.clone();
 	
+	auto t_start = std::chrono::high_resolution_clock::now();
+	bool first_flag = 0;
+	bool zone_start_change = 0;
 
 	//进入工作
 	while (ros::ok())
 	{
+		if (is_race_start == 0){
+			move_control :: my_control_frame _Contraldata;
+			_Contraldata.vx = 0;
+			_Contraldata.vy = 0;
+			_Contraldata.angle = 0;
+			move_control_publisher.publish(_Contraldata);
+
+			circle(img_final_path, cv::Point(robot1.y, robot1.x), 2, Scalar(0), -1);
+			imshow("Simulation_Environment2@HEUsjh", img_final_path);
+			waitKey(10);
+
+			imshow("Simulation_Environment@HEUsjh", img_erode_save);
+			//imshow("Simulation_Environment3@HEUsjh", img);
+			//imshow("Simulation_Environment2@HEUsjh", img_final_path);
+			ros::spinOnce();
+			//ROS_INFO("Searching hit goal!!!\n");
+			waitKey(1);
+			continue;
+		}
+
+		if (is_race_start == 1 && first_flag == 0){
+			t_start = std::chrono::high_resolution_clock::now();
+			first_flag = 1;
+			bullet_buff_state = 1;
+		}
+
 		if (need_replan_path == 1) { 
 			//delete_now_path();
 			auto t1 = std::chrono::high_resolution_clock::now();
@@ -1481,8 +1516,25 @@ int main(int argc, char **argv)
 			std::cout << "Total Time cost : " << (static_cast<std::chrono::duration<double, std::milli>>(t2 - t1)).count() << " ms" << std::endl;
 			std::cout << "----------------------------" << std::endl<<std::endl;
 		}
+		
 		//Navigation();
 		//draw_path();
+
+		//printf("now time = %lf\n",(static_cast<std::chrono::duration<double, std::milli>>(std::chrono::high_resolution_clock::now() - t_start)).count() / 1000);
+		//second buff
+		if ((static_cast<std::chrono::duration<double, std::milli>>(std::chrono::high_resolution_clock::now() - t_start)).count() / 1000 >= 160.0)
+			{
+				if (need_replan_path == 0){
+					goalx = 30;
+					goaly = 25;
+					need_replan_path = 1;
+					break;
+				}
+			}
+
+		if ((static_cast<std::chrono::duration<double, std::milli>>(std::chrono::high_resolution_clock::now() - t_start)).count() / 1000 >= 125.0)
+			bullet_buff_state = 1;
+
 
 		move_control :: my_control_frame _Contraldata;
 		_Contraldata.vx = 0;
@@ -1503,6 +1555,16 @@ int main(int argc, char **argv)
 	// 	goalx = 30; goaly = 100;
 	// need_replan_path = 1;
 		
+	}
+	while (ros::ok())
+	{
+		move_control :: my_control_frame _Contraldata;
+		_Contraldata.vx = 0;
+		_Contraldata.vy = 0;
+		_Contraldata.angle = 0;
+		move_control_publisher.publish(_Contraldata);
+		ros::spinOnce();
+		waitKey(10);
 	}
 }
 
@@ -1526,58 +1588,58 @@ cv::Point get_zone_locate(int num)
 		return cv::Point(84, 40);
 }
 
-void add_cant_go(cv::Point center,int long)
+void add_cant_go(cv::Point center,int aa)
 {
 	int x = center.x;
 	int y = center.y;
 	
 	//第一象限
-	for (int i = x; i <= x + long / 2; i++)
-		for (int j = y; j <= y + long / 2; j++)
+	for (int i = x; i <= x + aa / 2; i++)
+		for (int j = y; j <= y + aa / 2; j++)
 			a[i][j] = 1;
 
 	//第二象限
-	for (int i = x; i >= x - long / 2; i--)
-		for (int j = y; j <= y + long / 2; j++)
+	for (int i = x; i >= x - aa / 2; i--)
+		for (int j = y; j <= y + aa / 2; j++)
 			a[i][j] = 1;
 
 	//第三象限
-	for (int i = x; i >= x - long / 2; i--)
-		for (int j = y; j >= y - long / 2; j--)
+	for (int i = x; i >= x - aa / 2; i--)
+		for (int j = y; j >= y - aa / 2; j--)
 			a[i][j] = 1;
 
 	//第四象限
-	for (int i = x; i <= x + long / 2; i++)
-		for (int j = y; j >= y - long / 2; j--)
+	for (int i = x; i <= x + aa / 2; i++)
+		for (int j = y; j >= y - aa / 2; j--)
 			a[i][j] = 1;
 
 	//设置动态禁行区成功
 	return;
 }
 
-void delete_cant_go(cv::Point center, int long)
+void delete_cant_go(cv::Point center, int aa)
 {
 	int x = center.x;
 	int y = center.y;
 	
 	//第一象限
-	for (int i = x; i <= x + long / 2; i++)
-		for (int j = y; j <= y + long / 2; j++)
+	for (int i = x; i <= x + aa / 2; i++)
+		for (int j = y; j <= y + aa / 2; j++)
 			a[i][j] = 0;
 
 	//第二象限
-	for (int i = x; i >= x - long / 2; i--)
-		for (int j = y; j <= y + long / 2; j++)
+	for (int i = x; i >= x - aa / 2; i--)
+		for (int j = y; j <= y + aa / 2; j++)
 			a[i][j] = 0;
 
 	//第三象限
-	for (int i = x; i >= x - long / 2; i--)
-		for (int j = y; j >= y - long / 2; j--)
+	for (int i = x; i >= x - aa / 2; i--)
+		for (int j = y; j >= y - aa / 2; j--)
 			a[i][j] = 0;
 
 	//第四象限
-	for (int i = x; i <= x + long / 2; i++)
-		for (int j = y; j >= y - long / 2; j--)
+	for (int i = x; i <= x + aa / 2; i++)
+		for (int j = y; j >= y - aa / 2; j--)
 			a[i][j] = 0;
 
 	//设置动态禁行区成功
@@ -1586,52 +1648,76 @@ void delete_cant_go(cv::Point center, int long)
 
 void update_race_state_callback(const move_control :: race_state :: ConstPtr& msg_recv)
 {
+	is_race_start = msg_recv -> robot_id;
 	robot1.HP = msg_recv->self_1_HP_left;
 	robot1.MP = msg_recv->self_1_bullet_left;
+	printf("\nnow HP = %d   MP =   %d   race_state = %d\n, bullet_buff_state = %d", robot1.HP, robot1.MP, is_race_start, bullet_buff_state);
 	for (int i=0;i<=5;i++)
 	{
 		zone[i] = msg_recv->zone[i];
 		zone_status[i] = msg_recv->zone_status[i];
 		//red 2 blue 1
 		//有加子弹的buff就直接吃
-		if (msg_recv->myteam == 2 && zone[i] == 2 && zone_status[i] == 1){
+		if (msg_recv->myteam == 2 && zone[i] == 2 && bullet_buff_state == 1 ){
 			if (need_replan_path == 0){
-				goalx = get_zone_locate(i).x;
-				goaly = get_zone_locate(i).y;
+				goalx = get_zone_locate(i+1).x;
+				goaly = get_zone_locate(i+1).y;
+				//printf("keep\n");
+				keep_xy_safe(goalx, goaly);
+				//printf("keep\n");
+				need_replan_path = 1;
+				bullet_buff_state = 0;
+				printf("ready to go to area %d\n", i);
 			}
 		}
 
-		if (msg_recv->myteam == 1 && zone[i] == 4 && zone_status[i] == 1)
+		if (msg_recv->myteam == 1 && zone[i] == 4 && bullet_buff_state == 1)
 		{
 			if (need_replan_path == 0){
-				goalx = get_zone_locate(i).x;
-				goaly = get_zone_locate(i).y;
+				goalx = get_zone_locate(i+1).x;
+				goaly = get_zone_locate(i+1).y;
+				//printf("keep\n");
+				keep_xy_safe(goalx, goaly);
+				//printf("keep\n");
+				need_replan_path = 1;
+				bullet_buff_state = 0;
+				printf("ready to go to area %d\n", i);
 			}
 		}
 
 		//有加血的buff，等掉血了再吃
-		if (msg_recv->myteam == 2 && zone[i] == 1 && zone_status[i] == 1){
-			if (2000 - robot1.HP >= 200){
-				goalx = get_zone_locate(i).x;
-				goaly = get_zone_locate(i).y;
+		if (msg_recv->myteam == 2 && zone[i] == 1){
+			if (2000 - robot1.HP >= 100){
+				goalx = get_zone_locate(i+1).x;
+				goaly = get_zone_locate(i+1).y;
+				//printf("keep\n");
+				keep_xy_safe(goalx, goaly);
+				//printf("keep\n");
+				need_replan_path = 1;
+				printf("ready to go to area %d\n", i);
 			}
 		}
 
-		if (msg_recv->myteam == 1 && zone[i] == 3 && zone_status[i] == 1){
-			if (2000 - robot1.HP >= 200){
-				goalx = get_zone_locate(i).x;
-				goaly = get_zone_locate(i).y;
+		if (msg_recv->myteam == 1 && zone[i] == 3){
+			if (abs(2000 - robot1.HP) >= 100){
+				goalx = get_zone_locate(i+1).x;
+				goaly = get_zone_locate(i+1).y;
+				//printf("keep\n");
+				keep_xy_safe(goalx, goaly);
+				//printf("keep\n");
+				need_replan_path = 1;
+				printf("ready to go to area %d\n", i);
 			}
 		}
 
 		//惩罚区添加a数组
-		if (zone[i] == 5 && zone_status[i] == 1){
-			add_cant_go(get_zone_locate(i), 30);
+		if (zone[i] == 5){
+			//add_cant_go(get_zone_locate(i), 30);
 		}
 
 		//惩罚区添加a数组
-		if (zone[i] == 6 && zone_status[i] == 1){
-			add_cant_go(get_zone_locate(i), 30);
+		if (zone[i] == 6){
+			//add_cant_go(get_zone_locate(i), 30);
 		}
 	}
 	return;
@@ -1642,6 +1728,13 @@ void update_position_callback (const geometry_msgs::Point::ConstPtr& msg_recv)
 {
 	robot1.x = (msg_recv->x) * 1000 / 20;
 	robot1.y = (msg_recv->y) * 1000 / 20;
+
+	// if (my_dist(robot1.x, robot1.y, 144, 367) <= 25 && is_race_start == 1 && zone) {have_i_pass_zone[0] = 1; printf("set 0 zone passed!!"); }
+	// if (my_dist(robot1.x, robot1.y, 80, 322) <= 25 && is_race_start == 1) {have_i_pass_zone[1] = 1; printf("set 1 zone passed!!");}
+	// if (my_dist(robot1.x, robot1.y, 24, 204) <= 25 && is_race_start == 1) {have_i_pass_zone[2] = 1; printf("set 2 zone passed!!");}
+	// if (my_dist(robot1.x, robot1.y, 201, 202) <= 25 && is_race_start == 1) {have_i_pass_zone[3] = 1; printf("set 3 zone passed!!");}
+	// if (my_dist(robot1.x, robot1.y, 146, 85) <= 25 && is_race_start == 1) {have_i_pass_zone[4] = 1; printf("set 4 zone passed!!");}
+	// if (my_dist(robot1.x, robot1.y, 84, 40) <= 25 && is_race_start == 1) {have_i_pass_zone[5] = 1; printf("set 5 zone passed!!");}
 	//printf("recv = (%f, %f)  now robotx = %d, now roboty = %d\n", msg_recv->x, msg_recv->y, robot1.x, robot1.y);
 }
 
@@ -1740,10 +1833,14 @@ void mouse_handle(int event, int x, int y, int flags, void* param)
 
 //保证(x,y)不在墙里面，以免路径规划炸了
 //因为是引用，直接传参就可以了
-void keep_xy_safe(int& x, int& y)
+void keep_xy_safe(int &x, int &y)
 {
+	//printf("%d %d \n", x, y);
 	if (a[x][y] == -1){
 		int my_mmin = 99999, mmin_x,mmin_y;
+		////for (int i = 0; i < img_erode_save.rows; i++)
+		//	for (int j = 0; j < img_erode_save.cols; j++)
+
 		for (int i=0;i<img_erode_save.rows;i++)
 			for (int j=0;j<img_erode_save.cols;j++)
 				if (((i-x) * (i-x) + (j-y) * (j-y) < my_mmin) && (a[i][j] == 0)){

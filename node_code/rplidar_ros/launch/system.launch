@@ -1,0 +1,7 @@
+<launch>
+<node pkg = "port_listener_core" type = "port_listener_core" name = "port_listener_core" output = "screen"/>
+<node pkg = "odom" type = "odom" name = "odom" output = "screen"/>
+<node pkg = "map_server" type = "map_server" args = "/home/ubuntu/map.yaml" name = "map_server"/>
+<include file="/home/ubuntu/catkin/src/rplidar_ros/launch/rplidar_s2.launch"/>
+<node pkg = "odom" type = "amcl_listener" name = "amcl_listener"/>
+</launch>

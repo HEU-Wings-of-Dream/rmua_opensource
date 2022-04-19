@@ -22,9 +22,9 @@
 #define LIGHT_BAR_RECT 0    // the rotated rect of the contour
 #define LIGHT_BAR_CONTOUR 0 // the corners of the contour
 #define WRONG_LIGHTBAR 0
-#define RECT_MATCH 0
+#define RECT_MATCH 1
 #define WRONG_RECT 0
-#define TARGET_SHOW 0
+#define TARGET_SHOW 1
 #define USE_SVM 0
 #define SVM_IMG 0
 //#define TEST_VIDEO  "/media/star/whx1/2021-RMUC-SZGS-CB02.mp4"

@@ -152,9 +152,10 @@ std::queue <std::string> recv_buffer_queue;
 
 int enemy_x = 0, enemy_y = 0;
 
-void my_recv()
+void my_recv(const ros::Publisher &publisher)
 {
     char temp_x[4], temp_y[4];
+    geometry_msgs::Point send_buffer;
     std::string temp_string;
     // printf("Ready to clean recv buffer!!\n");
     // while (readLn = recv(sockfd, char_recv_buffer, sizeof(recv_buffer), 0));
@@ -178,10 +179,17 @@ void my_recv()
 
         printf("Received from 192.168.43.126:\n%s\n", char_recv_buffer);
 
-        if (char_recv_buffer[7] != 'E'){
-            temp_x[0] = temp_string[0]; temp_x[1] = temp_string[1]; temp_x[2] = temp_string[2];
-            temp_y[0] = temp_string[4]; temp_y[1] = temp_string[5]; temp_y[2] = temp_string[6];
+        if (char_recv_buffer[7] == 'E'){
+            temp_x[0] = char_recv_buffer[0]; temp_x[1] = char_recv_buffer[1]; temp_x[2] = char_recv_buffer[2];
+            temp_y[0] = char_recv_buffer[4]; temp_y[1] = char_recv_buffer[5]; temp_y[2] = char_recv_buffer[6];
             enemy_x = atoi(temp_x); enemy_y = atoi(temp_y);
+            send_buffer.x = enemy_x;
+            send_buffer.y = enemy_y;
+            send_buffer.z = 2020080119;
+            publisher.publish(send_buffer);
+            //printf("%d      %d\n", enemy_x, enemy_y);
+            printf("Published new enemy_x, enemy_y.  (%lf,   %lf)\n", send_buffer.x, send_buffer.y);
+
 
         }
             //continue;
@@ -288,7 +296,7 @@ INIT:
     printf("Connect success!!! Wait to listen.");
 
 
-    std::thread recv_thread(&my_recv);
+    std::thread recv_thread(&my_recv, (TCP_command_publisher));
     recv_thread.detach();
 
     std::thread publish_thread(&command_publisher, (TCP_command_publisher));

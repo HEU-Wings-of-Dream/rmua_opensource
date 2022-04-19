@@ -51,9 +51,9 @@ namespace rm {
         uint8_t myteam; //1  EE DD
         uint8_t robot_id;
         uint8_t zone[6];
-        uint8_t zone_status[6];
-        uint8_t self_1_bullet_left;
-        uint8_t self_1_HP_left;
+        uint8_t zone_status[4];
+        uint16_t self_1_bullet_left;
+        uint16_t self_1_HP_left;
         uint8_t self_2_bullet_left;
         uint8_t self_2_HP_left;
         uint8_t enemy_1_bullet_left;
