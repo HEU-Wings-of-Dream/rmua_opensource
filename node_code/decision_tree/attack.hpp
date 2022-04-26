@@ -5,12 +5,15 @@
 #include <queue>
 #include <string>
 
+#include "TCP.h"
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgproc/types_c.h>
 
 #define WINDOW_NAME "watch_map"
+#define USE_TCP 1
 #define PI 3.1415926
 
 #define IS_CROSS(x1,y1,x2,y2,x3,y3,x4,y4)								\
@@ -134,7 +137,8 @@ void init()
 	cv::Mat structureElement = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(35, 35), cv::Point(-1, -1));
 	erode(map_save, erode_map_save, structureElement);
 	cv::imshow(WINDOW_NAME, map_save);
-	cv::waitKey(100000000);
+	cv::waitKey(10000000);
+	printf("listen to server");
 	return;
 }
 
@@ -256,18 +260,44 @@ void pick_strike_area(int enemyx, int enemyy)
 
 	double angle1;
 	double my_r = (Best_strike_distance_pix2 + Best_strike_distance_pix) / 2.0;
+
+	int mmin_y = 9999;
+	int mmin_i = 0;
+
 	for (int i = 1; i <= jj; i++) {
+		//取出最靠左边的点来拍视频，同时实战中也是离家近方便直接润
+		if (enemyy + int(my_r * cos(can_strike_angle[i] * 0.005)) < mmin_y) {
+			mmin_y = enemyy + int(my_r * cos(can_strike_angle[i] * 0.005));
+			mmin_i = i;
+		}
+
 		cv::circle(fire_map, cv::Point(enemyy + int(my_r*cos(can_strike_angle[i]*0.005)), enemyx + my_r*sin(can_strike_angle[i]*0.005)), 3, cv::Scalar(0), 3);
 		cv::line(fire_map, cv::Point(enemyy + int(my_r * cos(can_strike_angle[i] * 0.005)), enemyx + my_r * sin(can_strike_angle[i] * 0.005)), cv::Point(enemyy, enemyx), cv::Scalar(0), 2);
 	}
+	
+	if (jj == 0) return;
+	//准备发布选中的点
+	//注意这里发出去的全部都是以opencv图像坐标系为参考坐标系的
+	int temp_x = int(enemyy + int(my_r * cos(can_strike_angle[mmin_i] * 0.005)));
+	int temp_y = int(enemyx + int(my_r * sin(can_strike_angle[mmin_i] * 0.005)));
+	cv::circle(fire_map, cv::Point(temp_x, temp_y), 5, cv::Scalar(0), 3);
 
+	std::string string_x = std::to_string(temp_x);
+	std::string string_y = std::to_string(temp_y);
+
+	if (temp_x < 100) string_x = '0' + string_x;
+	if (temp_y < 100) string_y = '0' + string_y;
+
+	std::string temp_string = string_x + ' ' + string_y;
+	need_to_send_queue.push(temp_string);
+	return;
 }
 
 cv::Mat get_fire_map(int x1, int y1, int x2, int y2)
 {
 	cv::Mat img(map_save.rows, map_save.cols, CV_8UC1,1);
 	memcpy((uchar*)img.data, (uchar*)map_save.data, map_save.total() * sizeof(uchar));
-	//这里很坑，如何一个图像是纯黑的，那么是不能进行memcpoy的，甚至不能获取data指针
+	//这里很坑，如何一个图像是纯黑的，那么是不能进行memcpy的，甚至不能获取data指针
 	//因为，opencv认为这是一个空图像，返回的有可能是空指针，即使它不是
 	memcpy((uchar*)pure_fire_map.data, (uchar*)white_map.data, white_map.total() * sizeof(uchar));
 	//如果场上只有一个敌人，把两个点重合即可
@@ -303,6 +333,7 @@ cv::Mat get_fire_map(int x1, int y1, int x2, int y2)
 			//if (temp2 != temp4) std::cout << "error2:" << x2 << ' ' << y2 << ' ' << i << ' ' << j << ' ' << temp2 << ' ' << temp4 << std::endl;
 			//if ((temp1 == 1) || (temp2 == 1)) {
 			//	//*(data + k) = 100;
+			// 
 			//	img.at<uchar>(i, j) = 100;
 			//	pure_fire_map.at<uchar>(i, j) = 0;
 			//}
@@ -317,9 +348,19 @@ cv::Mat get_fire_map(int x1, int y1, int x2, int y2)
 	}
 	return img;
 }
-
+/*----------
+这里需要注意的是为什么我这个调用的pick_strike_area()参数是y, x
+是因为原本测试的时候使用的是鼠标事件回调函数，x，y为鼠标在图像坐标系中的坐标值，注意不是窗口坐标系；
+但是我的坐标系规定是和opencv反过来的，为什么呢，因为拿行作为x轴我认为应该是正常人的思维，或者说，它符合二维数组的思维方式
+|----------------------->y
+|
+|
+|
+x
+------------*/
 void refresh_window(int x, int y)
 {
+	//if (x <= 0 || y <= 0) return;
 	//IS_MEET(20, 20, y, x);
 	//IS_CROSS(0, 0, 200, 200, 200, 0, y, x);
 	//cv::Mat temp_map = map_save.clone();
