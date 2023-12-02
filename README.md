@@ -1,5 +1,5 @@
 # RUMA opensource
-# Author: 史家豪
+# Author: 史嘉豪
 >  **百炼之志，当我问鼎！** 
 
 > 提及年少二字，应与平庸相斥 
